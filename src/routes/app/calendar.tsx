@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import * as React from "react"
 import { useUser } from "@clerk/clerk-react"
 import { Calendar as BigCalendar, dateFnsLocalizer } from "react-big-calendar"
+import { useQuery, useMutation } from "@tanstack/react-query"
 import {
 	format,
 	parse,
@@ -92,63 +93,70 @@ function CalendarPage() {
 	const weekEnd = endOfWeek(currentDate, { weekStartsOn: 0 })
 	const weekNumber = getWeek(currentDate)
 
-	// Fetch data
-	const { data: projects = [] } = orpc.listProjects.useQuery(
-		{ clerkId: user?.id || "" },
-		{ enabled: !!user?.id }
+	// Fetch data using correct oRPC pattern
+	const { data: projects = [] } = useQuery(
+		orpc.listProjects.queryOptions({
+			input: { clerkId: user?.id || "" },
+		})
 	)
 
-	const { data: tags = [] } = orpc.listTags.useQuery(
-		{ clerkId: user?.id || "" },
-		{ enabled: !!user?.id }
+	const { data: tags = [] } = useQuery(
+		orpc.listTags.queryOptions({
+			input: { clerkId: user?.id || "" },
+		})
 	)
 
-	const { data: activities, refetch: refetchActivities } = orpc.listActivities.useQuery(
-		{
-			clerkId: user?.id || "",
-			startDate: weekStart.toISOString(),
-			endDate: weekEnd.toISOString(),
-		},
-		{ enabled: !!user?.id }
+	const { data: activities, refetch: refetchActivities } = useQuery(
+		orpc.listActivities.queryOptions({
+			input: {
+				clerkId: user?.id || "",
+				startDate: weekStart.toISOString(),
+				endDate: weekEnd.toISOString(),
+			},
+		})
 	)
 
-	// Mutations
-	const createActivity = orpc.createActivity.useMutation({
+	// Mutations using correct oRPC pattern
+	const { mutateAsync: createActivityMutation } = useMutation({
+		mutationFn: orpc.createActivity.call,
 		onSuccess: () => {
 			refetchActivities()
 			toast.success("Activity created")
 		},
-		onError: (error) => {
+		onError: (error: any) => {
 			toast.error(error.message || "Failed to create activity")
 		},
 	})
 
-	const updateActivity = orpc.updateActivity.useMutation({
+	const { mutateAsync: updateActivityMutation } = useMutation({
+		mutationFn: orpc.updateActivity.call,
 		onSuccess: () => {
 			refetchActivities()
 			toast.success("Activity updated")
 		},
-		onError: (error) => {
+		onError: (error: any) => {
 			toast.error(error.message || "Failed to update activity")
 		},
 	})
 
-	const deleteActivity = orpc.deleteActivity.useMutation({
+	const { mutateAsync: deleteActivityMutation } = useMutation({
+		mutationFn: orpc.deleteActivity.call,
 		onSuccess: () => {
 			refetchActivities()
 			toast.success("Activity deleted")
 		},
-		onError: (error) => {
+		onError: (error: any) => {
 			toast.error(error.message || "Failed to delete activity")
 		},
 	})
 
-	const duplicateActivity = orpc.duplicateActivity.useMutation({
+	const { mutateAsync: duplicateActivityMutation } = useMutation({
+		mutationFn: orpc.duplicateActivity.call,
 		onSuccess: () => {
 			refetchActivities()
 			toast.success("Activity duplicated")
 		},
-		onError: (error) => {
+		onError: (error: any) => {
 			toast.error(error.message || "Failed to duplicate activity")
 		},
 	})
@@ -216,7 +224,7 @@ function CalendarPage() {
 
 		if (data.id) {
 			// Update existing
-			await updateActivity.mutateAsync({
+			await updateActivityMutation({
 				id: data.id,
 				clerkId: user.id,
 				name: data.name,
@@ -228,7 +236,7 @@ function CalendarPage() {
 			})
 		} else {
 			// Create new
-			await createActivity.mutateAsync({
+			await createActivityMutation({
 				clerkId: user.id,
 				name: data.name,
 				projectId: data.projectId,
@@ -255,7 +263,7 @@ function CalendarPage() {
 	// Handle duplicate
 	const handleDuplicate = async (event: CalendarEvent) => {
 		if (!user?.id) return
-		await duplicateActivity.mutateAsync({
+		await duplicateActivityMutation({
 			id: event.id,
 			clerkId: user.id,
 		})
@@ -264,7 +272,7 @@ function CalendarPage() {
 	// Handle delete confirmation
 	const handleConfirmDelete = async () => {
 		if (!user?.id || !eventToDelete) return
-		await deleteActivity.mutateAsync({
+		await deleteActivityMutation({
 			id: eventToDelete.id,
 			clerkId: user.id,
 		})
