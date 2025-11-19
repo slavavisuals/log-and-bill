@@ -1,118 +1,211 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from "@tanstack/react-router"
+import { SignedIn, SignedOut, SignInButton } from "@clerk/clerk-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import {
-  Zap,
-  Server,
-  Route as RouteIcon,
-  Shield,
-  Waves,
-  Sparkles,
-} from 'lucide-react'
+	Clock,
+	BarChart3,
+	FileText,
+	Calendar,
+	ArrowRight,
+	CheckCircle2,
+} from "lucide-react"
 
-export const Route = createFileRoute('/')({ component: App })
+export const Route = createFileRoute("/")({
+	component: LandingPage,
+})
 
-function App() {
-  const features = [
-    {
-      icon: <Zap className="w-12 h-12 text-cyan-400" />,
-      title: 'Powerful Server Functions',
-      description:
-        'Write server-side code that seamlessly integrates with your client components. Type-safe, secure, and simple.',
-    },
-    {
-      icon: <Server className="w-12 h-12 text-cyan-400" />,
-      title: 'Flexible Server Side Rendering',
-      description:
-        'Full-document SSR, streaming, and progressive enhancement out of the box. Control exactly what renders where.',
-    },
-    {
-      icon: <RouteIcon className="w-12 h-12 text-cyan-400" />,
-      title: 'API Routes',
-      description:
-        'Build type-safe API endpoints alongside your application. No separate backend needed.',
-    },
-    {
-      icon: <Shield className="w-12 h-12 text-cyan-400" />,
-      title: 'Strongly Typed Everything',
-      description:
-        'End-to-end type safety from server to client. Catch errors before they reach production.',
-    },
-    {
-      icon: <Waves className="w-12 h-12 text-cyan-400" />,
-      title: 'Full Streaming Support',
-      description:
-        'Stream data from server to client progressively. Perfect for AI applications and real-time updates.',
-    },
-    {
-      icon: <Sparkles className="w-12 h-12 text-cyan-400" />,
-      title: 'Next Generation Ready',
-      description:
-        'Built from the ground up for modern web applications. Deploy anywhere JavaScript runs.',
-    },
-  ]
+function LandingPage() {
+	return (
+		<div className="flex min-h-screen flex-col">
+			{/* Header */}
+			<header className="border-b">
+				<div className="container mx-auto flex h-16 items-center justify-between px-4">
+					<div className="flex items-center gap-2">
+						<BarChart3 className="text-primary size-6" />
+						<span className="text-xl font-bold">Log & Bill</span>
+					</div>
+					<div className="flex items-center gap-4">
+						<SignedOut>
+							<SignInButton mode="modal">
+								<Button variant="ghost">Sign In</Button>
+							</SignInButton>
+							<SignInButton mode="modal">
+								<Button>Get Started</Button>
+							</SignInButton>
+						</SignedOut>
+						<SignedIn>
+							<Button asChild>
+								<Link to="/app/overview">Go to Dashboard</Link>
+							</Button>
+						</SignedIn>
+					</div>
+				</div>
+			</header>
 
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
-      <section className="relative py-20 px-6 text-center overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 via-blue-500/10 to-purple-500/10"></div>
-        <div className="relative max-w-5xl mx-auto">
-          <div className="flex items-center justify-center gap-6 mb-6">
-            <img
-              src="/tanstack-circle-logo.png"
-              alt="TanStack Logo"
-              className="w-24 h-24 md:w-32 md:h-32"
-            />
-            <h1 className="text-6xl md:text-7xl font-black text-white [letter-spacing:-0.08em]">
-              <span className="text-gray-300">TANSTACK</span>{' '}
-              <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
-                START
-              </span>
-            </h1>
-          </div>
-          <p className="text-2xl md:text-3xl text-gray-300 mb-4 font-light">
-            The framework for next generation AI applications
-          </p>
-          <p className="text-lg text-gray-400 max-w-3xl mx-auto mb-8">
-            Full-stack framework powered by TanStack Router for React and Solid.
-            Build modern applications with server functions, streaming, and type
-            safety.
-          </p>
-          <div className="flex flex-col items-center gap-4">
-            <a
-              href="https://tanstack.com/start"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-8 py-3 bg-cyan-500 hover:bg-cyan-600 text-white font-semibold rounded-lg transition-colors shadow-lg shadow-cyan-500/50"
-            >
-              Documentation
-            </a>
-            <p className="text-gray-400 text-sm mt-2">
-              Begin your TanStack Start journey by editing{' '}
-              <code className="px-2 py-1 bg-slate-700 rounded text-cyan-400">
-                /src/routes/index.tsx
-              </code>
-            </p>
-          </div>
-        </div>
-      </section>
+			{/* Hero Section */}
+			<section className="flex-1">
+				<div className="container mx-auto px-4 py-24 text-center">
+					<h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
+						Track Your Time.
+						<br />
+						<span className="text-primary">Bill Your Clients.</span>
+					</h1>
+					<p className="text-muted-foreground mx-auto mt-6 max-w-2xl text-lg">
+						A simple, powerful time tracking app that helps freelancers and
+						contractors log their hours, manage projects, and create
+						professional invoices.
+					</p>
+					<div className="mt-10 flex justify-center gap-4">
+						<SignedOut>
+							<SignInButton mode="modal">
+								<Button size="lg">
+									Start Tracking Free
+									<ArrowRight className="ml-2 size-4" />
+								</Button>
+							</SignInButton>
+						</SignedOut>
+						<SignedIn>
+							<Button size="lg" asChild>
+								<Link to="/app/overview">
+									Go to Dashboard
+									<ArrowRight className="ml-2 size-4" />
+								</Link>
+							</Button>
+						</SignedIn>
+					</div>
+				</div>
+			</section>
 
-      <section className="py-16 px-6 max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {features.map((feature, index) => (
-            <div
-              key={index}
-              className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-6 hover:border-cyan-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/10"
-            >
-              <div className="mb-4">{feature.icon}</div>
-              <h3 className="text-xl font-semibold text-white mb-3">
-                {feature.title}
-              </h3>
-              <p className="text-gray-400 leading-relaxed">
-                {feature.description}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-    </div>
-  )
+			{/* Features Section */}
+			<section className="bg-muted/50 border-t py-24">
+				<div className="container mx-auto px-4">
+					<h2 className="mb-12 text-center text-3xl font-bold">How It Works</h2>
+					<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+						<Card>
+							<CardContent className="pt-6">
+								<div className="bg-primary/10 text-primary mb-4 flex size-12 items-center justify-center rounded-lg">
+									<Calendar className="size-6" />
+								</div>
+								<h3 className="mb-2 font-semibold">Track Time</h3>
+								<p className="text-muted-foreground text-sm">
+									Log your hours with our intuitive calendar interface. Drag to
+									create time entries quickly.
+								</p>
+							</CardContent>
+						</Card>
+
+						<Card>
+							<CardContent className="pt-6">
+								<div className="bg-primary/10 text-primary mb-4 flex size-12 items-center justify-center rounded-lg">
+									<Clock className="size-6" />
+								</div>
+								<h3 className="mb-2 font-semibold">Manage Projects</h3>
+								<p className="text-muted-foreground text-sm">
+									Organize your work by projects and clients. Set hourly rates
+									and track billable hours.
+								</p>
+							</CardContent>
+						</Card>
+
+						<Card>
+							<CardContent className="pt-6">
+								<div className="bg-primary/10 text-primary mb-4 flex size-12 items-center justify-center rounded-lg">
+									<BarChart3 className="size-6" />
+								</div>
+								<h3 className="mb-2 font-semibold">Analyze Reports</h3>
+								<p className="text-muted-foreground text-sm">
+									Get insights into your productivity with visual charts and
+									detailed reports.
+								</p>
+							</CardContent>
+						</Card>
+
+						<Card>
+							<CardContent className="pt-6">
+								<div className="bg-primary/10 text-primary mb-4 flex size-12 items-center justify-center rounded-lg">
+									<FileText className="size-6" />
+								</div>
+								<h3 className="mb-2 font-semibold">Create Invoices</h3>
+								<p className="text-muted-foreground text-sm">
+									Generate professional invoices from your tracked time with
+									taxes and payment details.
+								</p>
+							</CardContent>
+						</Card>
+					</div>
+				</div>
+			</section>
+
+			{/* Benefits Section */}
+			<section className="py-24">
+				<div className="container mx-auto px-4">
+					<div className="mx-auto max-w-3xl">
+						<h2 className="mb-8 text-center text-3xl font-bold">
+							Everything You Need
+						</h2>
+						<div className="grid gap-4 sm:grid-cols-2">
+							{[
+								"Visual calendar scheduler",
+								"Weekly & monthly hour limits",
+								"Project-based time tracking",
+								"Multiple tag support",
+								"Billable/non-billable hours",
+								"Custom hourly rates",
+								"Professional invoices",
+								"PDF export",
+								"Tax calculations (GST/HST/VAT)",
+								"Activity insights & charts",
+								"Client management",
+								"Dark mode support",
+							].map((feature) => (
+								<div key={feature} className="flex items-center gap-2">
+									<CheckCircle2 className="text-primary size-5 shrink-0" />
+									<span>{feature}</span>
+								</div>
+							))}
+						</div>
+					</div>
+				</div>
+			</section>
+
+			{/* CTA Section */}
+			<section className="bg-primary text-primary-foreground py-16">
+				<div className="container mx-auto px-4 text-center">
+					<h2 className="mb-4 text-2xl font-bold">
+						Ready to Start Tracking Your Time?
+					</h2>
+					<p className="mb-8 opacity-90">
+						Join freelancers and contractors who use Log & Bill to manage their
+						time and invoices.
+					</p>
+					<SignedOut>
+						<SignInButton mode="modal">
+							<Button size="lg" variant="secondary">
+								Get Started Free
+								<ArrowRight className="ml-2 size-4" />
+							</Button>
+						</SignInButton>
+					</SignedOut>
+					<SignedIn>
+						<Button size="lg" variant="secondary" asChild>
+							<Link to="/app/overview">
+								Go to Dashboard
+								<ArrowRight className="ml-2 size-4" />
+							</Link>
+						</Button>
+					</SignedIn>
+				</div>
+			</section>
+
+			{/* Footer */}
+			<footer className="border-t py-8">
+				<div className="container mx-auto px-4 text-center">
+					<p className="text-muted-foreground text-sm">
+						© {new Date().getFullYear()} Log & Bill. All rights reserved.
+					</p>
+				</div>
+			</footer>
+		</div>
+	)
 }

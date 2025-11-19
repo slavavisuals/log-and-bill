@@ -1,75 +1,83 @@
 import {
-  HeadContent,
-  Scripts,
-  createRootRouteWithContext,
-} from '@tanstack/react-router'
-import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
-import { TanStackDevtools } from '@tanstack/react-devtools'
+	HeadContent,
+	Outlet,
+	Scripts,
+	createRootRouteWithContext,
+} from "@tanstack/react-router"
+import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
+import { TanStackDevtools } from "@tanstack/react-devtools"
 
-import Header from '../components/Header'
+import ClerkProvider from "../integrations/clerk/provider"
 
-import ClerkProvider from '../integrations/clerk/provider'
+import TanStackQueryDevtools from "../integrations/tanstack-query/devtools"
 
-import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
+import { Toaster } from "@/components/ui/sonner"
 
-import appCss from '../styles.css?url'
+import appCss from "../styles.css?url"
 
-import type { QueryClient } from '@tanstack/react-query'
+import type { QueryClient } from "@tanstack/react-query"
 
 interface MyRouterContext {
-  queryClient: QueryClient
+	queryClient: QueryClient
 }
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
-  head: () => ({
-    meta: [
-      {
-        charSet: 'utf-8',
-      },
-      {
-        name: 'viewport',
-        content: 'width=device-width, initial-scale=1',
-      },
-      {
-        title: 'TanStack Start Starter',
-      },
-    ],
-    links: [
-      {
-        rel: 'stylesheet',
-        href: appCss,
-      },
-    ],
-  }),
+	head: () => ({
+		meta: [
+			{
+				charSet: "utf-8",
+			},
+			{
+				name: "viewport",
+				content: "width=device-width, initial-scale=1",
+			},
+			{
+				title: "Log & Bill - Time Tracking",
+			},
+		],
+		links: [
+			{
+				rel: "stylesheet",
+				href: appCss,
+			},
+		],
+	}),
 
-  shellComponent: RootDocument,
+	component: RootComponent,
 })
 
+function RootComponent() {
+	return (
+		<RootDocument>
+			<ClerkProvider>
+				<Outlet />
+				<Toaster />
+				<TanStackDevtools
+					config={{
+						position: "bottom-right",
+					}}
+					plugins={[
+						{
+							name: "Tanstack Router",
+							render: <TanStackRouterDevtoolsPanel />,
+						},
+						TanStackQueryDevtools,
+					]}
+				/>
+			</ClerkProvider>
+		</RootDocument>
+	)
+}
+
 function RootDocument({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="en">
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        <ClerkProvider>
-          <Header />
-          {children}
-          <TanStackDevtools
-            config={{
-              position: 'bottom-right',
-            }}
-            plugins={[
-              {
-                name: 'Tanstack Router',
-                render: <TanStackRouterDevtoolsPanel />,
-              },
-              TanStackQueryDevtools,
-            ]}
-          />
-        </ClerkProvider>
-        <Scripts />
-      </body>
-    </html>
-  )
+	return (
+		<html lang="en">
+			<head>
+				<HeadContent />
+			</head>
+			<body>{children}
+				<Scripts />
+			</body>
+		</html>
+	)
 }
