@@ -103,6 +103,9 @@ function CalendarPage() {
 		endTime: Date
 	} | null>(null)
 
+	// Ref to skip onSelectEvent when handling context menu actions
+	const skipSelectEventRef = React.useRef(false)
+
 	// Calculate week range
 	const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 })
 	const weekEnd = endOfWeek(currentDate, { weekStartsOn: 0 })
@@ -226,6 +229,11 @@ function CalendarPage() {
 
 	// Handle event selection (editing activity)
 	const handleSelectEvent = (event: CalendarEvent) => {
+		// Skip if we're handling a context menu action
+		if (skipSelectEventRef.current) {
+			skipSelectEventRef.current = false
+			return
+		}
 		setSelectedActivity({
 			id: event.id,
 			name: event.title,
@@ -425,11 +433,9 @@ function CalendarPage() {
 				<ContextMenuTrigger asChild>
 					<div
 						className="group relative h-full w-full overflow-hidden px-1 py-0.5 text-xs text-white"
-						onMouseDown={(e) => {
-							// Prevent right-click from triggering onSelectEvent
-							if (e.button === 2) {
-								e.stopPropagation()
-							}
+						onContextMenu={() => {
+							// Set flag to skip onSelectEvent when context menu opens
+							skipSelectEventRef.current = true
 						}}
 					>
 						<Move className="absolute right-0.5 top-0.5 size-3 opacity-50 group-hover:opacity-100" />
@@ -441,8 +447,8 @@ function CalendarPage() {
 				</ContextMenuTrigger>
 				<ContextMenuContent>
 					<ContextMenuItem
-						onSelect={(e) => {
-							e.preventDefault()
+						onSelect={() => {
+							skipSelectEventRef.current = true
 							handleDuplicate(event)
 						}}
 					>
@@ -450,8 +456,8 @@ function CalendarPage() {
 						Clone
 					</ContextMenuItem>
 					<ContextMenuItem
-						onSelect={(e) => {
-							e.preventDefault()
+						onSelect={() => {
+							skipSelectEventRef.current = true
 							handleEdit(event)
 						}}
 					>
@@ -459,8 +465,8 @@ function CalendarPage() {
 						Edit
 					</ContextMenuItem>
 					<ContextMenuItem
-						onSelect={(e) => {
-							e.preventDefault()
+						onSelect={() => {
+							skipSelectEventRef.current = true
 							setEventToDelete(event)
 							setDeleteConfirmOpen(true)
 						}}
