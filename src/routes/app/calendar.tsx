@@ -423,7 +423,15 @@ function CalendarPage() {
 		({ event }: { event: CalendarEvent }) => (
 			<ContextMenu>
 				<ContextMenuTrigger asChild>
-					<div className="group relative h-full w-full overflow-hidden px-1 py-0.5 text-xs text-white">
+					<div
+						className="group relative h-full w-full overflow-hidden px-1 py-0.5 text-xs text-white"
+						onMouseDown={(e) => {
+							// Prevent right-click from triggering onSelectEvent
+							if (e.button === 2) {
+								e.stopPropagation()
+							}
+						}}
+					>
 						<Move className="absolute right-0.5 top-0.5 size-3 opacity-50 group-hover:opacity-100" />
 						<div className="font-medium truncate pr-4">{event.title || "Untitled"}</div>
 						{event.projectName && (
