@@ -522,7 +522,7 @@ function CalendarPage() {
 					</div>
 				</CardHeader>
 				<CardContent>
-					<div className="h-[600px]">
+					<div className="h-[700px]">
 						<DragAndDropCalendar
 							localizer={localizer}
 							events={events}
@@ -540,8 +540,7 @@ function CalendarPage() {
 							resizable
 							step={15}
 							timeslots={4}
-							min={new Date(0, 0, 0, 0, 0, 0)}
-							max={new Date(0, 0, 0, 23, 59, 59)}
+							scrollToTime={new Date(0, 0, 0, 8, 0, 0)}
 							components={{
 								event: EventComponent,
 							}}
