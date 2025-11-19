@@ -92,6 +92,7 @@ function CalendarPage() {
 	const [selectedActivity, setSelectedActivity] = React.useState<ActivityFormData | undefined>()
 	const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false)
 	const [eventToDelete, setEventToDelete] = React.useState<CalendarEvent | null>(null)
+	const [dialogMode, setDialogMode] = React.useState<"create" | "edit" | "clone">("create")
 
 	// Calculate week range
 	const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 })
@@ -155,17 +156,6 @@ function CalendarPage() {
 		},
 	})
 
-	const { mutateAsync: duplicateActivityMutation } = useMutation({
-		mutationFn: orpc.duplicateActivity.call,
-		onSuccess: () => {
-			refetchActivities()
-			toast.success("Activity duplicated")
-		},
-		onError: (error: any) => {
-			toast.error(error.message || "Failed to duplicate activity")
-		},
-	})
-
 	// Transform activities to calendar events
 	React.useEffect(() => {
 		if (activities) {
@@ -196,8 +186,25 @@ function CalendarPage() {
 	const goToNextWeek = () => setCurrentDate(addWeeks(currentDate, 1))
 	const goToToday = () => setCurrentDate(new Date())
 
+	// Check for overlapping events
+	const checkOverlap = React.useCallback(
+		(newStart: Date, newEnd: Date, excludeId?: string): boolean => {
+			return events.some((event) => {
+				if (excludeId && event.id === excludeId) return false
+				return newStart < event.end && newEnd > event.start
+			})
+		},
+		[events]
+	)
+
 	// Handle slot selection (creating new activity)
 	const handleSelectSlot = ({ start, end }: { start: Date; end: Date }) => {
+		// Check for overlap
+		if (checkOverlap(start, end)) {
+			toast.error("There is no time available for new activity. Activities cannot overlap.")
+			return
+		}
+		setDialogMode("create")
 		setSelectedActivity({
 			name: "",
 			projectId: null,
@@ -211,6 +218,7 @@ function CalendarPage() {
 
 	// Handle event selection (editing activity)
 	const handleSelectEvent = (event: CalendarEvent) => {
+		setDialogMode("edit")
 		setSelectedActivity({
 			id: event.id,
 			name: event.title,
@@ -265,16 +273,21 @@ function CalendarPage() {
 		}
 	}
 
-	// Handle duplicate - memoized to prevent EventComponent recreation
+	// Handle clone - opens dialog with clone mode
 	const handleDuplicate = React.useCallback(
-		async (event: CalendarEvent) => {
-			if (!user?.id) return
-			await duplicateActivityMutation({
-				id: event.id,
-				clerkId: user.id,
+		(event: CalendarEvent) => {
+			setDialogMode("clone")
+			setSelectedActivity({
+				name: event.title,
+				projectId: event.projectId,
+				tagIds: event.tagIds,
+				isBillable: event.isBillable,
+				startTime: event.start,
+				endTime: event.end,
 			})
+			setIsDialogOpen(true)
 		},
-		[user?.id, duplicateActivityMutation]
+		[]
 	)
 
 	// Handle event drop (drag and drop)
@@ -289,6 +302,14 @@ function CalendarPage() {
 			end: Date
 		}) => {
 			if (!user?.id) return
+
+			// Check for overlap
+			if (checkOverlap(start, end, event.id)) {
+				toast.error("Activities cannot overlap.")
+				refetchActivities() // Reset to original position
+				return
+			}
+
 			await updateActivityMutation({
 				id: event.id,
 				clerkId: user.id,
@@ -300,7 +321,7 @@ function CalendarPage() {
 				tagIds: event.tagIds,
 			})
 		},
-		[user?.id, updateActivityMutation]
+		[user?.id, updateActivityMutation, checkOverlap, refetchActivities]
 	)
 
 	// Handle event resize
@@ -315,6 +336,14 @@ function CalendarPage() {
 			end: Date
 		}) => {
 			if (!user?.id) return
+
+			// Check for overlap
+			if (checkOverlap(start, end, event.id)) {
+				toast.error("Activities cannot overlap.")
+				refetchActivities() // Reset to original size
+				return
+			}
+
 			await updateActivityMutation({
 				id: event.id,
 				clerkId: user.id,
@@ -326,12 +355,13 @@ function CalendarPage() {
 				tagIds: event.tagIds,
 			})
 		},
-		[user?.id, updateActivityMutation]
+		[user?.id, updateActivityMutation, checkOverlap, refetchActivities]
 	)
 
 	// Handle edit from context menu
 	const handleEdit = React.useCallback(
 		(event: CalendarEvent) => {
+			setDialogMode("edit")
 			setSelectedActivity({
 				id: event.id,
 				name: event.title,
@@ -488,7 +518,10 @@ function CalendarPage() {
 				open={isDialogOpen}
 				onOpenChange={(open) => {
 					setIsDialogOpen(open)
-					if (!open) setSelectedActivity(undefined)
+					if (!open) {
+						setSelectedActivity(undefined)
+						setDialogMode("create")
+					}
 				}}
 				activity={selectedActivity}
 				projects={projects.map((p: any) => ({
@@ -503,6 +536,13 @@ function CalendarPage() {
 				}))}
 				onSave={handleSave}
 				onDelete={selectedActivity?.id ? handleDeleteFromDialog : undefined}
+				mode={dialogMode}
+				currentWeekStart={weekStart}
+				existingEvents={events.map((e) => ({
+					id: e.id,
+					start: e.start,
+					end: e.end,
+				}))}
 			/>
 
 			{/* Delete Confirmation Dialog */}

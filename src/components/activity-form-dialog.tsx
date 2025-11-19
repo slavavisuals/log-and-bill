@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useUser } from "@clerk/clerk-react"
-import { format } from "date-fns"
+import { format, addDays, startOfWeek, isSameDay } from "date-fns"
 import { TagIcon, X } from "lucide-react"
 
 import {
@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
+import { toast } from "sonner"
 
 interface Project {
 	id: string
@@ -52,6 +53,14 @@ interface ActivityFormData {
 	endTime: Date
 }
 
+interface ExistingEvent {
+	id: string
+	start: Date
+	end: Date
+}
+
+type DialogMode = "create" | "edit" | "clone"
+
 interface ActivityFormDialogProps {
 	open: boolean
 	onOpenChange: (open: boolean) => void
@@ -61,6 +70,9 @@ interface ActivityFormDialogProps {
 	onSave: (data: ActivityFormData) => void
 	onDelete?: () => void
 	timeFormat?: "12h" | "24h"
+	mode?: DialogMode
+	currentWeekStart?: Date
+	existingEvents?: ExistingEvent[]
 }
 
 export function ActivityFormDialog({
@@ -72,6 +84,9 @@ export function ActivityFormDialog({
 	onSave,
 	onDelete,
 	timeFormat = "24h",
+	mode = "create",
+	currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 0 }),
+	existingEvents = [],
 }: ActivityFormDialogProps) {
 	const [name, setName] = React.useState(activity?.name || "")
 	const [projectId, setProjectId] = React.useState<string | null>(
@@ -92,7 +107,63 @@ export function ActivityFormDialog({
 	const [tagPopoverOpen, setTagPopoverOpen] = React.useState(false)
 	const [newTagName, setNewTagName] = React.useState("")
 
-	const isEditing = !!activity?.id
+	const isEditing = mode === "edit"
+	const isCloning = mode === "clone"
+
+	// Generate week days for day selector
+	const weekDays = React.useMemo(() => {
+		return Array.from({ length: 7 }, (_, i) => {
+			const date = addDays(currentWeekStart, i)
+			return {
+				value: i.toString(),
+				label: format(date, "EEE, MMM d"),
+				date,
+			}
+		})
+	}, [currentWeekStart])
+
+	// Get current selected day index
+	const selectedDayIndex = React.useMemo(() => {
+		const dayIndex = weekDays.findIndex((day) =>
+			isSameDay(day.date, startTime)
+		)
+		return dayIndex >= 0 ? dayIndex.toString() : "0"
+	}, [weekDays, startTime])
+
+	// Check for overlapping events
+	const checkOverlap = React.useCallback(
+		(newStart: Date, newEnd: Date, excludeId?: string): boolean => {
+			return existingEvents.some((event) => {
+				// Skip the event being edited
+				if (excludeId && event.id === excludeId) return false
+				// Check for overlap
+				return newStart < event.end && newEnd > event.start
+			})
+		},
+		[existingEvents]
+	)
+
+	// Handle day change
+	const handleDayChange = (dayIndex: string) => {
+		const targetDate = weekDays[parseInt(dayIndex)].date
+		const newStartTime = new Date(startTime)
+		const newEndTime = new Date(endTime)
+
+		// Update the date while preserving the time
+		newStartTime.setFullYear(
+			targetDate.getFullYear(),
+			targetDate.getMonth(),
+			targetDate.getDate()
+		)
+		newEndTime.setFullYear(
+			targetDate.getFullYear(),
+			targetDate.getMonth(),
+			targetDate.getDate()
+		)
+
+		setStartTime(newStartTime)
+		setEndTime(newEndTime)
+	}
 
 	// Reset form when activity changes
 	React.useEffect(() => {
@@ -148,8 +219,15 @@ export function ActivityFormDialog({
 		e.preventDefault()
 		if (!name.trim()) return
 
+		// Check for overlap (exclude current activity when editing)
+		const excludeId = isEditing ? activity?.id : undefined
+		if (checkOverlap(startTime, endTime, excludeId)) {
+			toast.error("There is no time available for new activity. Activities cannot overlap.")
+			return
+		}
+
 		onSave({
-			id: activity?.id,
+			id: isCloning ? undefined : activity?.id, // Don't pass id when cloning
 			name: name.trim(),
 			projectId,
 			tagIds: selectedTags,
@@ -157,6 +235,18 @@ export function ActivityFormDialog({
 			startTime,
 			endTime,
 		})
+	}
+
+	// Get dialog title based on mode
+	const getDialogTitle = () => {
+		switch (mode) {
+			case "clone":
+				return "Clone Activity"
+			case "edit":
+				return "Edit Activity"
+			default:
+				return "New Activity"
+		}
 	}
 
 	const getTagName = (tagId: string) => {
@@ -170,9 +260,7 @@ export function ActivityFormDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="sm:max-w-md">
 				<DialogHeader>
-					<DialogTitle>
-						{isEditing ? "Edit Activity" : "New Activity"}
-					</DialogTitle>
+					<DialogTitle>{getDialogTitle()}</DialogTitle>
 				</DialogHeader>
 
 				<form onSubmit={handleSubmit} className="space-y-4">
@@ -294,6 +382,23 @@ export function ActivityFormDialog({
 						/>
 					</div>
 
+					{/* Day Selector */}
+					<div className="space-y-2">
+						<Label>Day</Label>
+						<Select value={selectedDayIndex} onValueChange={handleDayChange}>
+							<SelectTrigger>
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								{weekDays.map((day) => (
+									<SelectItem key={day.value} value={day.value}>
+										{day.label}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
+
 					{/* Time Pickers */}
 					<div className="grid grid-cols-2 gap-4">
 						<div className="space-y-2">
@@ -324,7 +429,7 @@ export function ActivityFormDialog({
 
 					{/* Action Buttons */}
 					<div className="flex justify-between pt-4">
-						{isEditing && onDelete ? (
+						{isEditing && onDelete && !isCloning ? (
 							<Button
 								type="button"
 								variant="destructive"
@@ -344,7 +449,7 @@ export function ActivityFormDialog({
 								Cancel
 							</Button>
 							<Button type="submit" disabled={!name.trim()}>
-								{isEditing ? "Save" : "Add"}
+								{isCloning ? "Save" : isEditing ? "Save" : "Add"}
 							</Button>
 						</div>
 					</div>
