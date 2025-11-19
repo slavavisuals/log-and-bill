@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import * as React from "react"
 import { useUser } from "@clerk/clerk-react"
 import { Calendar as BigCalendar, dateFnsLocalizer } from "react-big-calendar"
+import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import {
 	format,
@@ -14,11 +15,17 @@ import {
 	getWeek,
 } from "date-fns"
 import { enUS } from "date-fns/locale"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronLeft, ChevronRight, Move, Copy, Pencil, Trash2 } from "lucide-react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ActivityFormDialog } from "@/components/activity-form-dialog"
+import {
+	ContextMenu,
+	ContextMenuContent,
+	ContextMenuItem,
+	ContextMenuTrigger,
+} from "@/components/ui/context-menu"
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -33,6 +40,7 @@ import { orpc } from "@/orpc/client"
 import { toast } from "sonner"
 
 import "react-big-calendar/lib/css/react-big-calendar.css"
+import "react-big-calendar/lib/addons/dragAndDrop/styles.css"
 
 export const Route = createFileRoute("/app/calendar")({
 	component: CalendarPage,
@@ -50,6 +58,9 @@ const localizer = dateFnsLocalizer({
 	getDay,
 	locales,
 })
+
+// Create drag and drop calendar
+const DragAndDropCalendar = withDragAndDrop(BigCalendar)
 
 interface CalendarEvent {
 	id: string
@@ -266,6 +277,75 @@ function CalendarPage() {
 		[user?.id, duplicateActivityMutation]
 	)
 
+	// Handle event drop (drag and drop)
+	const handleEventDrop = React.useCallback(
+		async ({
+			event,
+			start,
+			end,
+		}: {
+			event: CalendarEvent
+			start: Date
+			end: Date
+		}) => {
+			if (!user?.id) return
+			await updateActivityMutation({
+				id: event.id,
+				clerkId: user.id,
+				name: event.title,
+				projectId: event.projectId,
+				startTime: start.toISOString(),
+				endTime: end.toISOString(),
+				isBillable: event.isBillable,
+				tagIds: event.tagIds,
+			})
+		},
+		[user?.id, updateActivityMutation]
+	)
+
+	// Handle event resize
+	const handleEventResize = React.useCallback(
+		async ({
+			event,
+			start,
+			end,
+		}: {
+			event: CalendarEvent
+			start: Date
+			end: Date
+		}) => {
+			if (!user?.id) return
+			await updateActivityMutation({
+				id: event.id,
+				clerkId: user.id,
+				name: event.title,
+				projectId: event.projectId,
+				startTime: start.toISOString(),
+				endTime: end.toISOString(),
+				isBillable: event.isBillable,
+				tagIds: event.tagIds,
+			})
+		},
+		[user?.id, updateActivityMutation]
+	)
+
+	// Handle edit from context menu
+	const handleEdit = React.useCallback(
+		(event: CalendarEvent) => {
+			setSelectedActivity({
+				id: event.id,
+				name: event.title,
+				projectId: event.projectId,
+				tagIds: event.tagIds,
+				isBillable: event.isBillable,
+				startTime: event.start,
+				endTime: event.end,
+			})
+			setIsDialogOpen(true)
+		},
+		[]
+	)
+
 	// Handle delete confirmation
 	const handleConfirmDelete = async () => {
 		if (!user?.id || !eventToDelete) return
@@ -278,24 +358,42 @@ function CalendarPage() {
 		setSelectedActivity(undefined)
 	}
 
-	// Custom event component - simplified for proper rendering
+	// Custom event component with context menu and move icon
 	const EventComponent = React.useCallback(
 		({ event }: { event: CalendarEvent }) => (
-			<div
-				className="h-full w-full overflow-hidden px-1 py-0.5 text-xs text-white"
-				onContextMenu={(e) => {
-					e.preventDefault()
-					setEventToDelete(event)
-					setDeleteConfirmOpen(true)
-				}}
-			>
-				<div className="font-medium truncate">{event.title || "Untitled"}</div>
-				{event.projectName && (
-					<div className="truncate opacity-80">{event.projectName}</div>
-				)}
-			</div>
+			<ContextMenu>
+				<ContextMenuTrigger asChild>
+					<div className="group relative h-full w-full overflow-hidden px-1 py-0.5 text-xs text-white">
+						<Move className="absolute right-0.5 top-0.5 size-3 opacity-50 group-hover:opacity-100" />
+						<div className="font-medium truncate pr-4">{event.title || "Untitled"}</div>
+						{event.projectName && (
+							<div className="truncate opacity-80">{event.projectName}</div>
+						)}
+					</div>
+				</ContextMenuTrigger>
+				<ContextMenuContent>
+					<ContextMenuItem onClick={() => handleDuplicate(event)}>
+						<Copy className="mr-2 size-4" />
+						Clone
+					</ContextMenuItem>
+					<ContextMenuItem onClick={() => handleEdit(event)}>
+						<Pencil className="mr-2 size-4" />
+						Edit
+					</ContextMenuItem>
+					<ContextMenuItem
+						onClick={() => {
+							setEventToDelete(event)
+							setDeleteConfirmOpen(true)
+						}}
+						className="text-destructive"
+					>
+						<Trash2 className="mr-2 size-4" />
+						Delete
+					</ContextMenuItem>
+				</ContextMenuContent>
+			</ContextMenu>
 		),
-		[]
+		[handleDuplicate, handleEdit]
 	)
 
 	return (
@@ -340,7 +438,7 @@ function CalendarPage() {
 				</CardHeader>
 				<CardContent>
 					<div className="h-[600px]">
-						<BigCalendar
+						<DragAndDropCalendar
 							localizer={localizer}
 							events={events}
 							startAccessor="start"
@@ -352,6 +450,9 @@ function CalendarPage() {
 							selectable
 							onSelectSlot={handleSelectSlot}
 							onSelectEvent={handleSelectEvent}
+							onEventDrop={handleEventDrop as any}
+							onEventResize={handleEventResize as any}
+							resizable
 							step={15}
 							timeslots={4}
 							min={new Date(0, 0, 0, 6, 0, 0)}
@@ -364,6 +465,7 @@ function CalendarPage() {
 									backgroundColor: event.projectColor || "#3b82f6",
 									border: "none",
 									borderRadius: "4px",
+									cursor: "grab",
 								},
 							})}
 							dayPropGetter={(date) => {
@@ -375,6 +477,7 @@ function CalendarPage() {
 										: {},
 								}
 							}}
+							draggableAccessor={() => true}
 						/>
 					</div>
 				</CardContent>

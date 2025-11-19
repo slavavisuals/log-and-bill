@@ -236,3 +236,26 @@ code {
 .rbc-time-gutter .rbc-timeslot-group {
   border-bottom: none;
 }
+
+/* Drag and drop styles */
+.rbc-addons-dnd .rbc-event {
+  cursor: grab;
+}
+
+.rbc-addons-dnd .rbc-event:active {
+  cursor: grabbing;
+}
+
+.rbc-addons-dnd-dragged-event {
+  opacity: 0.5;
+}
+
+.rbc-addons-dnd-drag-preview {
+  opacity: 0.8;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.rbc-addons-dnd-resize-ns-icon,
+.rbc-addons-dnd-resize-ew-icon {
+  display: none;
+}
