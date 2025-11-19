@@ -1,0 +1,224 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  userId            String   @db.Uuid
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  createdAt         DateTime @default(now()) @db.Timestamp(6)
+  updatedAt         DateTime
+  User              User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "account_userId_user_id_fk")
+
+  @@id([provider, providerAccountId], map: "account_provider_providerAccountId_pk")
+}
+
+model Cart {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String?  @db.Uuid
+  sessionCartId String
+  items         Json[]   @default([]) @db.Json
+  itemsPrice    Decimal  @db.Decimal(12, 2)
+  shippingPrice Decimal  @db.Decimal(12, 2)
+  taxPrice      Decimal  @db.Decimal(12, 2)
+  totalPrice    Decimal  @db.Decimal(12, 2)
+  createdAt     DateTime @default(now()) @db.Timestamp(6)
+  User          User?    @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "cart_userId_user_id_fk")
+}
+
+model Order {
+  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String      @db.Uuid
+  shippingAddress Json        @db.Json
+  paymentMethod   String
+  paymentResult   Json?       @db.Json
+  itemsPrice      Decimal     @db.Decimal(12, 2)
+  shippingPrice   Decimal     @db.Decimal(12, 2)
+  taxPrice        Decimal     @db.Decimal(12, 2)
+  totalPrice      Decimal     @db.Decimal(12, 2)
+  isPaid          Boolean     @default(false)
+  paidAt          DateTime?   @db.Timestamp(6)
+  isDelivered     Boolean     @default(false)
+  deliveredAt     DateTime?   @db.Timestamp(6)
+  createdAt       DateTime    @default(now()) @db.Timestamp(6)
+  User            User        @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "order_userId_user_id_fk")
+  OrderItem       OrderItem[]
+}
+
+model OrderItem {
+  orderId   String  @db.Uuid
+  productId String  @db.Uuid
+  qty       Int
+  price     Decimal @db.Decimal(12, 2)
+  name      String
+  slug      String
+  image     String
+  Order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "orderItems_orderId_order_id_fk")
+  Product   Product @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "orderItems_productId_product_id_fk")
+
+  @@id([orderId, productId], map: "orderItems_orderId_productId_pk")
+}
+
+model Product {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  slug        String      @unique(map: "product_slug_idx")
+  category    String
+  images      String[]
+  brand       String
+  description String
+  stock       Int
+  price       Decimal     @default(0) @db.Decimal(12, 2)
+  rating      Decimal     @default(0) @db.Decimal(3, 2)
+  numReviews  Int         @default(0)
+  isFeatured  Boolean     @default(false)
+  banner      String?
+  createdAt   DateTime    @default(now()) @db.Timestamp(6)
+  OrderItem   OrderItem[]
+}
+
+model Session {
+  sessionToken String   @id
+  userId       String   @db.Uuid
+  expires      DateTime @db.Timestamp(6)
+  createdAt    DateTime @default(now()) @db.Timestamp(6)
+  updatedAt    DateTime
+  User         User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "session_userId_user_id_fk")
+}
+
+model User {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String    @default("NO_NAME")
+  email         String    @unique(map: "user_email_idx")
+  emailVerified DateTime? @db.Timestamp(6)
+  image         String?
+  password      String?
+  role          String    @default("user")
+  address       Json?     @db.Json
+  paymentMethod String?
+  createdAt     DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt     DateTime
+  Account       Account[]
+  Cart          Cart[]
+  Order         Order[]
+  Session       Session[]
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model akiya_properties {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  property_id          String    @unique @db.VarChar(255)
+  price                String?
+  room_type            String?
+  year_of_construction String?
+  serial_number        String?
+  no_of_floors         Int?
+  contact_info         String?
+  area_of_house        String?
+  area_of_land         String?
+  address              String?
+  coordinates          Json?
+  link_to_website      String?
+  images               Json?
+  region               String?
+  prefecture           String?
+  municipality         String?
+  page_url             String?
+  scraped_at           DateTime? @default(now()) @db.Timestamptz(6)
+  created_at           DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([coordinates], map: "idx_akiya_coordinates", type: Gin)
+  @@index([images], map: "idx_akiya_images", type: Gin)
+  @@index([municipality], map: "idx_akiya_municipality")
+  @@index([prefecture], map: "idx_akiya_prefecture")
+  @@index([property_id], map: "idx_akiya_property_id")
+  @@index([region], map: "idx_akiya_region")
+  @@index([scraped_at(sort: Desc)], map: "idx_akiya_scraped_at")
+}
+
+model contacts {
+  id         Int       @id @default(autoincrement())
+  first_name String    @db.VarChar(100)
+  last_name  String    @db.VarChar(100)
+  email      String    @unique @db.VarChar(255)
+  date_added DateTime? @default(now()) @db.Timestamptz(6)
+}
+
+model documents {
+  id        BigInt                 @id @default(autoincrement())
+  content   String
+  metadata  Json?                  @default("{}")
+  embedding Unsupported("vector")?
+
+  @@index([embedding])
+  @@index([metadata], map: "idx_documents_metadata", type: Gin)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model listing_images {
+  id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  listing_id  String
+  full_url    String
+  alt         String?
+  height      Int?
+  width       Int?
+  image_order Int?
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  listings    listings  @relation(fields: [listing_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([listing_id, full_url])
+  @@index([listing_id], map: "idx_listing_images_listing_id")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model listings {
+  id                 String           @id
+  page_title         String
+  area_building      Decimal?         @db.Decimal(10, 2)
+  area_land          Decimal?         @db.Decimal(10, 2)
+  latitude           Decimal?         @db.Decimal(10, 7)
+  longitude          Decimal?         @db.Decimal(10, 7)
+  date_built         DateTime?        @db.Date
+  layout             String?
+  price              Int?
+  source_name        String?
+  source_url         String?
+  source_date_listed DateTime?        @db.Date
+  summary            String?
+  created_at         DateTime?        @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?        @default(now()) @db.Timestamptz(6)
+  listing_images     listing_images[]
+
+  @@index([created_at], map: "idx_listings_created_at")
+  @@index([price], map: "idx_listings_price")
+  @@index([updated_at], map: "idx_listings_updated_at")
+}
+
+model Todo {
+  id        Int      @id @default(autoincrement())
+  title     String
+  createdAt DateTime @default(now())
+}
