@@ -432,16 +432,27 @@ function CalendarPage() {
 					</div>
 				</ContextMenuTrigger>
 				<ContextMenuContent>
-					<ContextMenuItem onClick={() => handleDuplicate(event)}>
+					<ContextMenuItem
+						onSelect={(e) => {
+							e.preventDefault()
+							handleDuplicate(event)
+						}}
+					>
 						<Copy className="mr-2 size-4" />
 						Clone
 					</ContextMenuItem>
-					<ContextMenuItem onClick={() => handleEdit(event)}>
+					<ContextMenuItem
+						onSelect={(e) => {
+							e.preventDefault()
+							handleEdit(event)
+						}}
+					>
 						<Pencil className="mr-2 size-4" />
 						Edit
 					</ContextMenuItem>
 					<ContextMenuItem
-						onClick={() => {
+						onSelect={(e) => {
+							e.preventDefault()
 							setEventToDelete(event)
 							setDeleteConfirmOpen(true)
 						}}
