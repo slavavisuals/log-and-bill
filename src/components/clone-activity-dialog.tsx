@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
+import { TimePicker, formatDuration } from "@/components/time-picker"
 import {
 	Select,
 	SelectContent,
@@ -149,25 +150,20 @@ export function CloneActivityDialog({
 		setEndTime(newEndTime)
 	}
 
-	const formatTimeForInput = (date: Date) => {
-		return format(date, "HH:mm")
+	// Handle start time change
+	const handleStartTimeChange = (newStart: Date) => {
+		setStartTime(newStart)
+		// If end time is before or equal to start, move it forward
+		if (newStart >= endTime) {
+			const newEnd = new Date(newStart)
+			newEnd.setMinutes(newEnd.getMinutes() + 30)
+			setEndTime(newEnd)
+		}
 	}
 
-	const handleTimeChange = (type: "start" | "end", timeString: string) => {
-		const [hours, minutes] = timeString.split(":").map(Number)
-		const newDate = new Date(type === "start" ? startTime : endTime)
-		newDate.setHours(hours, minutes, 0, 0)
-
-		if (type === "start") {
-			setStartTime(newDate)
-			if (newDate >= endTime) {
-				const newEnd = new Date(newDate)
-				newEnd.setHours(newEnd.getHours() + 1)
-				setEndTime(newEnd)
-			}
-		} else {
-			setEndTime(newDate)
-		}
+	// Handle end time change
+	const handleEndTimeChange = (newEnd: Date) => {
+		setEndTime(newEnd)
 	}
 
 	const toggleTag = (tagId: string) => {
@@ -349,29 +345,24 @@ export function CloneActivityDialog({
 					{/* Time Pickers */}
 					<div className="grid grid-cols-2 gap-4">
 						<div className="space-y-2">
-							<Label htmlFor="clone-start-time">From</Label>
-							<Input
-								id="clone-start-time"
-								type="time"
-								value={formatTimeForInput(startTime)}
-								onChange={(e) => handleTimeChange("start", e.target.value)}
+							<Label>From</Label>
+							<TimePicker
+								value={startTime}
+								onChange={handleStartTimeChange}
 							/>
 						</div>
 						<div className="space-y-2">
-							<Label htmlFor="clone-end-time">To</Label>
-							<Input
-								id="clone-end-time"
-								type="time"
-								value={formatTimeForInput(endTime)}
-								onChange={(e) => handleTimeChange("end", e.target.value)}
+							<Label>To</Label>
+							<TimePicker
+								value={endTime}
+								onChange={handleEndTimeChange}
 							/>
 						</div>
 					</div>
 
 					{/* Duration Display */}
 					<div className="text-muted-foreground text-sm">
-						Duration:{" "}
-						{Math.round((endTime.getTime() - startTime.getTime()) / 60000)} min
+						Duration: {formatDuration(startTime, endTime)}
 					</div>
 
 					{/* Action Buttons - Only Save and Cancel for cloning */}

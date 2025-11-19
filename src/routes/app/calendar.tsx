@@ -540,8 +540,8 @@ function CalendarPage() {
 							resizable
 							step={15}
 							timeslots={4}
-							min={new Date(0, 0, 0, 6, 0, 0)}
-							max={new Date(0, 0, 0, 22, 0, 0)}
+							min={new Date(0, 0, 0, 0, 0, 0)}
+							max={new Date(0, 0, 0, 23, 59, 59)}
 							components={{
 								event: EventComponent,
 							}}
