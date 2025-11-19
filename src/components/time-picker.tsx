@@ -9,9 +9,17 @@ interface TimePickerProps {
 	value: Date
 	onChange: (date: Date) => void
 	label?: string
+	minHour?: number
+	maxHour?: number
 }
 
-export function TimePicker({ value, onChange, label }: TimePickerProps) {
+export function TimePicker({
+	value,
+	onChange,
+	label,
+	minHour = 5,
+	maxHour = 23,
+}: TimePickerProps) {
 	const hours = value.getHours()
 	const minutes = value.getMinutes()
 
@@ -19,18 +27,20 @@ export function TimePicker({ value, onChange, label }: TimePickerProps) {
 	const roundedMinutes = Math.round(minutes / 10) * 10
 
 	const updateTime = (newHours: number, newMinutes: number) => {
+		// Clamp hours to valid range
+		const clampedHours = Math.max(minHour, Math.min(maxHour - 1, newHours))
 		const newDate = new Date(value)
-		newDate.setHours(newHours, newMinutes, 0, 0)
+		newDate.setHours(clampedHours, newMinutes, 0, 0)
 		onChange(newDate)
 	}
 
 	const incrementHours = () => {
-		const newHours = hours >= 23 ? 0 : hours + 1
+		const newHours = hours >= maxHour - 1 ? minHour : hours + 1
 		updateTime(newHours, roundedMinutes)
 	}
 
 	const decrementHours = () => {
-		const newHours = hours <= 0 ? 23 : hours - 1
+		const newHours = hours <= minHour ? maxHour - 1 : hours - 1
 		updateTime(newHours, roundedMinutes)
 	}
 
@@ -39,7 +49,7 @@ export function TimePicker({ value, onChange, label }: TimePickerProps) {
 		let newHours = hours
 		if (newMinutes >= 60) {
 			newMinutes = 0
-			newHours = hours >= 23 ? 0 : hours + 1
+			newHours = hours >= maxHour - 1 ? minHour : hours + 1
 		}
 		updateTime(newHours, newMinutes)
 	}
@@ -49,7 +59,7 @@ export function TimePicker({ value, onChange, label }: TimePickerProps) {
 		let newHours = hours
 		if (newMinutes < 0) {
 			newMinutes = 50
-			newHours = hours <= 0 ? 23 : hours - 1
+			newHours = hours <= minHour ? maxHour - 1 : hours - 1
 		}
 		updateTime(newHours, newMinutes)
 	}
@@ -57,11 +67,11 @@ export function TimePicker({ value, onChange, label }: TimePickerProps) {
 	const handleHoursChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const val = e.target.value.replace(/\D/g, "")
 		if (val === "") {
-			updateTime(0, roundedMinutes)
+			updateTime(minHour, roundedMinutes)
 			return
 		}
 		const num = parseInt(val, 10)
-		if (num >= 0 && num <= 23) {
+		if (num >= minHour && num < maxHour) {
 			updateTime(num, roundedMinutes)
 		}
 	}
