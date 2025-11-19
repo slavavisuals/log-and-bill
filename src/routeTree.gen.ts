@@ -9,12 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DemoTanstackQueryRouteImport } from './routes/demo/tanstack-query'
 import { Route as DemoTableRouteImport } from './routes/demo/table'
 import { Route as DemoPrismaRouteImport } from './routes/demo/prisma'
 import { Route as DemoOrpcTodoRouteImport } from './routes/demo/orpc-todo'
 import { Route as DemoClerkRouteImport } from './routes/demo/clerk'
+import { Route as AppSettingsRouteImport } from './routes/app/settings'
+import { Route as AppOverviewRouteImport } from './routes/app/overview'
+import { Route as AppCalendarRouteImport } from './routes/app/calendar'
+import { Route as AppAnalyzeRouteImport } from './routes/app/analyze'
 import { Route as ApiSplatRouteImport } from './routes/api.$'
 import { Route as DemoStartServerFuncsRouteImport } from './routes/demo/start.server-funcs'
 import { Route as DemoStartApiRequestRouteImport } from './routes/demo/start.api-request'
@@ -22,12 +27,20 @@ import { Route as DemoFormSimpleRouteImport } from './routes/demo/form.simple'
 import { Route as DemoFormAddressRouteImport } from './routes/demo/form.address'
 import { Route as DemoApiTqTodosRouteImport } from './routes/demo/api.tq-todos'
 import { Route as DemoApiNamesRouteImport } from './routes/demo/api.names'
+import { Route as AppManageProjectsRouteImport } from './routes/app/manage/projects'
+import { Route as AppManageInvoicesRouteImport } from './routes/app/manage/invoices'
+import { Route as AppManageClientsRouteImport } from './routes/app/manage/clients'
 import { Route as ApiRpcSplatRouteImport } from './routes/api.rpc.$'
 import { Route as DemoStartSsrIndexRouteImport } from './routes/demo/start.ssr.index'
 import { Route as DemoStartSsrSpaModeRouteImport } from './routes/demo/start.ssr.spa-mode'
 import { Route as DemoStartSsrFullSsrRouteImport } from './routes/demo/start.ssr.full-ssr'
 import { Route as DemoStartSsrDataOnlyRouteImport } from './routes/demo/start.ssr.data-only'
 
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -57,6 +70,26 @@ const DemoClerkRoute = DemoClerkRouteImport.update({
   id: '/demo/clerk',
   path: '/demo/clerk',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppOverviewRoute = AppOverviewRouteImport.update({
+  id: '/overview',
+  path: '/overview',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCalendarRoute = AppCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAnalyzeRoute = AppAnalyzeRouteImport.update({
+  id: '/analyze',
+  path: '/analyze',
+  getParentRoute: () => AppRoute,
 } as any)
 const ApiSplatRoute = ApiSplatRouteImport.update({
   id: '/api/$',
@@ -93,6 +126,21 @@ const DemoApiNamesRoute = DemoApiNamesRouteImport.update({
   path: '/demo/api/names',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppManageProjectsRoute = AppManageProjectsRouteImport.update({
+  id: '/manage/projects',
+  path: '/manage/projects',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppManageInvoicesRoute = AppManageInvoicesRouteImport.update({
+  id: '/manage/invoices',
+  path: '/manage/invoices',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppManageClientsRoute = AppManageClientsRouteImport.update({
+  id: '/manage/clients',
+  path: '/manage/clients',
+  getParentRoute: () => AppRoute,
+} as any)
 const ApiRpcSplatRoute = ApiRpcSplatRouteImport.update({
   id: '/api/rpc/$',
   path: '/api/rpc/$',
@@ -121,13 +169,21 @@ const DemoStartSsrDataOnlyRoute = DemoStartSsrDataOnlyRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/app': typeof AppRouteWithChildren
   '/api/$': typeof ApiSplatRoute
+  '/app/analyze': typeof AppAnalyzeRoute
+  '/app/calendar': typeof AppCalendarRoute
+  '/app/overview': typeof AppOverviewRoute
+  '/app/settings': typeof AppSettingsRoute
   '/demo/clerk': typeof DemoClerkRoute
   '/demo/orpc-todo': typeof DemoOrpcTodoRoute
   '/demo/prisma': typeof DemoPrismaRoute
   '/demo/table': typeof DemoTableRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
+  '/app/manage/clients': typeof AppManageClientsRoute
+  '/app/manage/invoices': typeof AppManageInvoicesRoute
+  '/app/manage/projects': typeof AppManageProjectsRoute
   '/demo/api/names': typeof DemoApiNamesRoute
   '/demo/api/tq-todos': typeof DemoApiTqTodosRoute
   '/demo/form/address': typeof DemoFormAddressRoute
@@ -141,13 +197,21 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/app': typeof AppRouteWithChildren
   '/api/$': typeof ApiSplatRoute
+  '/app/analyze': typeof AppAnalyzeRoute
+  '/app/calendar': typeof AppCalendarRoute
+  '/app/overview': typeof AppOverviewRoute
+  '/app/settings': typeof AppSettingsRoute
   '/demo/clerk': typeof DemoClerkRoute
   '/demo/orpc-todo': typeof DemoOrpcTodoRoute
   '/demo/prisma': typeof DemoPrismaRoute
   '/demo/table': typeof DemoTableRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
+  '/app/manage/clients': typeof AppManageClientsRoute
+  '/app/manage/invoices': typeof AppManageInvoicesRoute
+  '/app/manage/projects': typeof AppManageProjectsRoute
   '/demo/api/names': typeof DemoApiNamesRoute
   '/demo/api/tq-todos': typeof DemoApiTqTodosRoute
   '/demo/form/address': typeof DemoFormAddressRoute
@@ -162,13 +226,21 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/app': typeof AppRouteWithChildren
   '/api/$': typeof ApiSplatRoute
+  '/app/analyze': typeof AppAnalyzeRoute
+  '/app/calendar': typeof AppCalendarRoute
+  '/app/overview': typeof AppOverviewRoute
+  '/app/settings': typeof AppSettingsRoute
   '/demo/clerk': typeof DemoClerkRoute
   '/demo/orpc-todo': typeof DemoOrpcTodoRoute
   '/demo/prisma': typeof DemoPrismaRoute
   '/demo/table': typeof DemoTableRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
+  '/app/manage/clients': typeof AppManageClientsRoute
+  '/app/manage/invoices': typeof AppManageInvoicesRoute
+  '/app/manage/projects': typeof AppManageProjectsRoute
   '/demo/api/names': typeof DemoApiNamesRoute
   '/demo/api/tq-todos': typeof DemoApiTqTodosRoute
   '/demo/form/address': typeof DemoFormAddressRoute
@@ -184,13 +256,21 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/app'
     | '/api/$'
+    | '/app/analyze'
+    | '/app/calendar'
+    | '/app/overview'
+    | '/app/settings'
     | '/demo/clerk'
     | '/demo/orpc-todo'
     | '/demo/prisma'
     | '/demo/table'
     | '/demo/tanstack-query'
     | '/api/rpc/$'
+    | '/app/manage/clients'
+    | '/app/manage/invoices'
+    | '/app/manage/projects'
     | '/demo/api/names'
     | '/demo/api/tq-todos'
     | '/demo/form/address'
@@ -204,13 +284,21 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/app'
     | '/api/$'
+    | '/app/analyze'
+    | '/app/calendar'
+    | '/app/overview'
+    | '/app/settings'
     | '/demo/clerk'
     | '/demo/orpc-todo'
     | '/demo/prisma'
     | '/demo/table'
     | '/demo/tanstack-query'
     | '/api/rpc/$'
+    | '/app/manage/clients'
+    | '/app/manage/invoices'
+    | '/app/manage/projects'
     | '/demo/api/names'
     | '/demo/api/tq-todos'
     | '/demo/form/address'
@@ -224,13 +312,21 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/app'
     | '/api/$'
+    | '/app/analyze'
+    | '/app/calendar'
+    | '/app/overview'
+    | '/app/settings'
     | '/demo/clerk'
     | '/demo/orpc-todo'
     | '/demo/prisma'
     | '/demo/table'
     | '/demo/tanstack-query'
     | '/api/rpc/$'
+    | '/app/manage/clients'
+    | '/app/manage/invoices'
+    | '/app/manage/projects'
     | '/demo/api/names'
     | '/demo/api/tq-todos'
     | '/demo/form/address'
@@ -245,6 +341,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRouteWithChildren
   ApiSplatRoute: typeof ApiSplatRoute
   DemoClerkRoute: typeof DemoClerkRoute
   DemoOrpcTodoRoute: typeof DemoOrpcTodoRoute
@@ -266,6 +363,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -307,6 +411,34 @@ declare module '@tanstack/react-router' {
       fullPath: '/demo/clerk'
       preLoaderRoute: typeof DemoClerkRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/app/settings': {
+      id: '/app/settings'
+      path: '/settings'
+      fullPath: '/app/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/overview': {
+      id: '/app/overview'
+      path: '/overview'
+      fullPath: '/app/overview'
+      preLoaderRoute: typeof AppOverviewRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/calendar': {
+      id: '/app/calendar'
+      path: '/calendar'
+      fullPath: '/app/calendar'
+      preLoaderRoute: typeof AppCalendarRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/analyze': {
+      id: '/app/analyze'
+      path: '/analyze'
+      fullPath: '/app/analyze'
+      preLoaderRoute: typeof AppAnalyzeRouteImport
+      parentRoute: typeof AppRoute
     }
     '/api/$': {
       id: '/api/$'
@@ -357,6 +489,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemoApiNamesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app/manage/projects': {
+      id: '/app/manage/projects'
+      path: '/manage/projects'
+      fullPath: '/app/manage/projects'
+      preLoaderRoute: typeof AppManageProjectsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/manage/invoices': {
+      id: '/app/manage/invoices'
+      path: '/manage/invoices'
+      fullPath: '/app/manage/invoices'
+      preLoaderRoute: typeof AppManageInvoicesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/manage/clients': {
+      id: '/app/manage/clients'
+      path: '/manage/clients'
+      fullPath: '/app/manage/clients'
+      preLoaderRoute: typeof AppManageClientsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/api/rpc/$': {
       id: '/api/rpc/$'
       path: '/api/rpc/$'
@@ -395,8 +548,31 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AppRouteChildren {
+  AppAnalyzeRoute: typeof AppAnalyzeRoute
+  AppCalendarRoute: typeof AppCalendarRoute
+  AppOverviewRoute: typeof AppOverviewRoute
+  AppSettingsRoute: typeof AppSettingsRoute
+  AppManageClientsRoute: typeof AppManageClientsRoute
+  AppManageInvoicesRoute: typeof AppManageInvoicesRoute
+  AppManageProjectsRoute: typeof AppManageProjectsRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppAnalyzeRoute: AppAnalyzeRoute,
+  AppCalendarRoute: AppCalendarRoute,
+  AppOverviewRoute: AppOverviewRoute,
+  AppSettingsRoute: AppSettingsRoute,
+  AppManageClientsRoute: AppManageClientsRoute,
+  AppManageInvoicesRoute: AppManageInvoicesRoute,
+  AppManageProjectsRoute: AppManageProjectsRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppRoute: AppRouteWithChildren,
   ApiSplatRoute: ApiSplatRoute,
   DemoClerkRoute: DemoClerkRoute,
   DemoOrpcTodoRoute: DemoOrpcTodoRoute,
