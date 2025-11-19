@@ -42,8 +42,7 @@ interface Tag {
 	color: string | null
 }
 
-interface ActivityFormData {
-	id?: string
+interface CloneActivityData {
 	name: string
 	projectId: string | null
 	tagIds: string[]
@@ -58,51 +57,34 @@ interface ExistingEvent {
 	end: Date
 }
 
-interface ActivityFormDialogProps {
+interface CloneActivityDialogProps {
 	open: boolean
 	onOpenChange: (open: boolean) => void
-	activity?: ActivityFormData
+	sourceActivity: CloneActivityData | null
 	projects: Project[]
 	tags: Tag[]
-	onSave: (data: ActivityFormData) => void
-	onDelete?: () => void
-	timeFormat?: "12h" | "24h"
+	onSave: (data: CloneActivityData) => void
 	currentWeekStart?: Date
 	existingEvents?: ExistingEvent[]
 }
 
-export function ActivityFormDialog({
+export function CloneActivityDialog({
 	open,
 	onOpenChange,
-	activity,
+	sourceActivity,
 	projects,
 	tags,
 	onSave,
-	onDelete,
-	timeFormat = "24h",
 	currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 0 }),
 	existingEvents = [],
-}: ActivityFormDialogProps) {
-	const [name, setName] = React.useState(activity?.name || "")
-	const [projectId, setProjectId] = React.useState<string | null>(
-		activity?.projectId || null
-	)
-	const [selectedTags, setSelectedTags] = React.useState<string[]>(
-		activity?.tagIds || []
-	)
-	const [isBillable, setIsBillable] = React.useState(
-		activity?.isBillable ?? true
-	)
-	const [startTime, setStartTime] = React.useState(
-		activity?.startTime || new Date()
-	)
-	const [endTime, setEndTime] = React.useState(
-		activity?.endTime || new Date()
-	)
+}: CloneActivityDialogProps) {
+	const [name, setName] = React.useState("")
+	const [projectId, setProjectId] = React.useState<string | null>(null)
+	const [selectedTags, setSelectedTags] = React.useState<string[]>([])
+	const [isBillable, setIsBillable] = React.useState(true)
+	const [startTime, setStartTime] = React.useState(new Date())
+	const [endTime, setEndTime] = React.useState(new Date())
 	const [tagPopoverOpen, setTagPopoverOpen] = React.useState(false)
-	const [newTagName, setNewTagName] = React.useState("")
-
-	const isEditing = !!activity?.id
 
 	// Generate week days for day selector
 	const weekDays = React.useMemo(() => {
@@ -126,16 +108,25 @@ export function ActivityFormDialog({
 
 	// Check for overlapping events
 	const checkOverlap = React.useCallback(
-		(newStart: Date, newEnd: Date, excludeId?: string): boolean => {
+		(newStart: Date, newEnd: Date): boolean => {
 			return existingEvents.some((event) => {
-				// Skip the event being edited
-				if (excludeId && event.id === excludeId) return false
-				// Check for overlap
 				return newStart < event.end && newEnd > event.start
 			})
 		},
 		[existingEvents]
 	)
+
+	// Initialize form with source activity data when dialog opens
+	React.useEffect(() => {
+		if (open && sourceActivity) {
+			setName(sourceActivity.name)
+			setProjectId(sourceActivity.projectId)
+			setSelectedTags(sourceActivity.tagIds)
+			setIsBillable(sourceActivity.isBillable)
+			setStartTime(sourceActivity.startTime)
+			setEndTime(sourceActivity.endTime)
+		}
+	}, [open, sourceActivity])
 
 	// Handle day change
 	const handleDayChange = (dayIndex: string) => {
@@ -143,7 +134,6 @@ export function ActivityFormDialog({
 		const newStartTime = new Date(startTime)
 		const newEndTime = new Date(endTime)
 
-		// Update the date while preserving the time
 		newStartTime.setFullYear(
 			targetDate.getFullYear(),
 			targetDate.getMonth(),
@@ -159,38 +149,17 @@ export function ActivityFormDialog({
 		setEndTime(newEndTime)
 	}
 
-	// Reset form when activity changes
-	React.useEffect(() => {
-		if (activity) {
-			setName(activity.name)
-			setProjectId(activity.projectId)
-			setSelectedTags(activity.tagIds)
-			setIsBillable(activity.isBillable)
-			setStartTime(activity.startTime)
-			setEndTime(activity.endTime)
-		} else {
-			setName("")
-			setProjectId(null)
-			setSelectedTags([])
-			setIsBillable(true)
-		}
-	}, [activity])
-
 	const formatTimeForInput = (date: Date) => {
 		return format(date, "HH:mm")
 	}
 
-	const handleTimeChange = (
-		type: "start" | "end",
-		timeString: string
-	) => {
+	const handleTimeChange = (type: "start" | "end", timeString: string) => {
 		const [hours, minutes] = timeString.split(":").map(Number)
 		const newDate = new Date(type === "start" ? startTime : endTime)
 		newDate.setHours(hours, minutes, 0, 0)
 
 		if (type === "start") {
 			setStartTime(newDate)
-			// If end time is before start, move it forward
 			if (newDate >= endTime) {
 				const newEnd = new Date(newDate)
 				newEnd.setHours(newEnd.getHours() + 1)
@@ -213,15 +182,16 @@ export function ActivityFormDialog({
 		e.preventDefault()
 		if (!name.trim()) return
 
-		// Check for overlap (exclude current activity when editing)
-		const excludeId = isEditing ? activity?.id : undefined
-		if (checkOverlap(startTime, endTime, excludeId)) {
-			toast.error("There is no time available for new activity. Activities cannot overlap.")
+		// Check for overlap
+		if (checkOverlap(startTime, endTime)) {
+			toast.error(
+				"There is no time available for new activity. Activities cannot overlap."
+			)
 			return
 		}
 
+		// Always create a new activity (this is cloning)
 		onSave({
-			id: activity?.id,
 			name: name.trim(),
 			projectId,
 			tagIds: selectedTags,
@@ -234,7 +204,6 @@ export function ActivityFormDialog({
 	const getTagName = (tagId: string) => {
 		const tag = tags.find((t) => t.id === tagId)
 		if (!tag) return tagId
-		// Truncate at 8 characters
 		return tag.name.length > 8 ? tag.name.slice(0, 8) + "…" : tag.name
 	}
 
@@ -242,17 +211,15 @@ export function ActivityFormDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="sm:max-w-md">
 				<DialogHeader>
-					<DialogTitle>
-						{isEditing ? "Edit Activity" : "New Activity"}
-					</DialogTitle>
+					<DialogTitle>Clone Activity</DialogTitle>
 				</DialogHeader>
 
 				<form onSubmit={handleSubmit} className="space-y-4">
 					{/* Activity Name */}
 					<div className="space-y-2">
-						<Label htmlFor="activity-name">Activity Name</Label>
+						<Label htmlFor="clone-activity-name">Activity Name</Label>
 						<Input
-							id="activity-name"
+							id="clone-activity-name"
 							value={name}
 							onChange={(e) => setName(e.target.value)}
 							placeholder="What are you working on?"
@@ -294,11 +261,7 @@ export function ActivityFormDialog({
 						<Label>Tags (max 5)</Label>
 						<div className="flex flex-wrap gap-2">
 							{selectedTags.map((tagId) => (
-								<Badge
-									key={tagId}
-									variant="secondary"
-									className="gap-1"
-								>
+								<Badge key={tagId} variant="secondary" className="gap-1">
 									{getTagName(tagId)}
 									<button
 										type="button"
@@ -329,7 +292,7 @@ export function ActivityFormDialog({
 												className="flex items-center space-x-2"
 											>
 												<Checkbox
-													id={`tag-${tag.id}`}
+													id={`clone-tag-${tag.id}`}
 													checked={selectedTags.includes(tag.id)}
 													onCheckedChange={() => toggleTag(tag.id)}
 													disabled={
@@ -338,7 +301,7 @@ export function ActivityFormDialog({
 													}
 												/>
 												<label
-													htmlFor={`tag-${tag.id}`}
+													htmlFor={`clone-tag-${tag.id}`}
 													className="flex-1 cursor-pointer text-sm"
 												>
 													{tag.name}
@@ -358,9 +321,9 @@ export function ActivityFormDialog({
 
 					{/* Billable Toggle */}
 					<div className="flex items-center justify-between">
-						<Label htmlFor="billable">Billable</Label>
+						<Label htmlFor="clone-billable">Billable</Label>
 						<Switch
-							id="billable"
+							id="clone-billable"
 							checked={isBillable}
 							onCheckedChange={setIsBillable}
 						/>
@@ -386,18 +349,18 @@ export function ActivityFormDialog({
 					{/* Time Pickers */}
 					<div className="grid grid-cols-2 gap-4">
 						<div className="space-y-2">
-							<Label htmlFor="start-time">From</Label>
+							<Label htmlFor="clone-start-time">From</Label>
 							<Input
-								id="start-time"
+								id="clone-start-time"
 								type="time"
 								value={formatTimeForInput(startTime)}
 								onChange={(e) => handleTimeChange("start", e.target.value)}
 							/>
 						</div>
 						<div className="space-y-2">
-							<Label htmlFor="end-time">To</Label>
+							<Label htmlFor="clone-end-time">To</Label>
 							<Input
-								id="end-time"
+								id="clone-end-time"
 								type="time"
 								value={formatTimeForInput(endTime)}
 								onChange={(e) => handleTimeChange("end", e.target.value)}
@@ -411,31 +374,18 @@ export function ActivityFormDialog({
 						{Math.round((endTime.getTime() - startTime.getTime()) / 60000)} min
 					</div>
 
-					{/* Action Buttons */}
-					<div className="flex justify-between pt-4">
-						{isEditing && onDelete ? (
-							<Button
-								type="button"
-								variant="destructive"
-								onClick={onDelete}
-							>
-								Delete
-							</Button>
-						) : (
-							<div />
-						)}
-						<div className="flex gap-2">
-							<Button
-								type="button"
-								variant="outline"
-								onClick={() => onOpenChange(false)}
-							>
-								Cancel
-							</Button>
-							<Button type="submit" disabled={!name.trim()}>
-								{isEditing ? "Save" : "Add"}
-							</Button>
-						</div>
+					{/* Action Buttons - Only Save and Cancel for cloning */}
+					<div className="flex justify-end gap-2 pt-4">
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => onOpenChange(false)}
+						>
+							Cancel
+						</Button>
+						<Button type="submit" disabled={!name.trim()}>
+							Save
+						</Button>
 					</div>
 				</form>
 			</DialogContent>

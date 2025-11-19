@@ -20,6 +20,7 @@ import { ChevronLeft, ChevronRight, Move, Copy, Pencil, Trash2 } from "lucide-re
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ActivityFormDialog } from "@/components/activity-form-dialog"
+import { CloneActivityDialog } from "@/components/clone-activity-dialog"
 import {
 	ContextMenu,
 	ContextMenuContent,
@@ -92,7 +93,15 @@ function CalendarPage() {
 	const [selectedActivity, setSelectedActivity] = React.useState<ActivityFormData | undefined>()
 	const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false)
 	const [eventToDelete, setEventToDelete] = React.useState<CalendarEvent | null>(null)
-	const [dialogMode, setDialogMode] = React.useState<"create" | "edit" | "clone">("create")
+	const [isCloneDialogOpen, setIsCloneDialogOpen] = React.useState(false)
+	const [activityToClone, setActivityToClone] = React.useState<{
+		name: string
+		projectId: string | null
+		tagIds: string[]
+		isBillable: boolean
+		startTime: Date
+		endTime: Date
+	} | null>(null)
 
 	// Calculate week range
 	const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 })
@@ -204,7 +213,6 @@ function CalendarPage() {
 			toast.error("There is no time available for new activity. Activities cannot overlap.")
 			return
 		}
-		setDialogMode("create")
 		setSelectedActivity({
 			name: "",
 			projectId: null,
@@ -218,7 +226,6 @@ function CalendarPage() {
 
 	// Handle event selection (editing activity)
 	const handleSelectEvent = (event: CalendarEvent) => {
-		setDialogMode("edit")
 		setSelectedActivity({
 			id: event.id,
 			name: event.title,
@@ -273,11 +280,10 @@ function CalendarPage() {
 		}
 	}
 
-	// Handle clone - opens dialog with clone mode
+	// Handle clone - opens separate clone dialog
 	const handleDuplicate = React.useCallback(
 		(event: CalendarEvent) => {
-			setDialogMode("clone")
-			setSelectedActivity({
+			setActivityToClone({
 				name: event.title,
 				projectId: event.projectId,
 				tagIds: event.tagIds,
@@ -285,10 +291,35 @@ function CalendarPage() {
 				startTime: event.start,
 				endTime: event.end,
 			})
-			setIsDialogOpen(true)
+			setIsCloneDialogOpen(true)
 		},
 		[]
 	)
+
+	// Handle save cloned activity
+	const handleSaveClone = async (data: {
+		name: string
+		projectId: string | null
+		tagIds: string[]
+		isBillable: boolean
+		startTime: Date
+		endTime: Date
+	}) => {
+		if (!user?.id) return
+
+		await createActivityMutation({
+			clerkId: user.id,
+			name: data.name,
+			projectId: data.projectId,
+			startTime: data.startTime.toISOString(),
+			endTime: data.endTime.toISOString(),
+			isBillable: data.isBillable,
+			tagIds: data.tagIds,
+		})
+
+		setIsCloneDialogOpen(false)
+		setActivityToClone(null)
+	}
 
 	// Handle event drop (drag and drop)
 	const handleEventDrop = React.useCallback(
@@ -361,7 +392,6 @@ function CalendarPage() {
 	// Handle edit from context menu
 	const handleEdit = React.useCallback(
 		(event: CalendarEvent) => {
-			setDialogMode("edit")
 			setSelectedActivity({
 				id: event.id,
 				name: event.title,
@@ -520,7 +550,6 @@ function CalendarPage() {
 					setIsDialogOpen(open)
 					if (!open) {
 						setSelectedActivity(undefined)
-						setDialogMode("create")
 					}
 				}}
 				activity={selectedActivity}
@@ -536,7 +565,35 @@ function CalendarPage() {
 				}))}
 				onSave={handleSave}
 				onDelete={selectedActivity?.id ? handleDeleteFromDialog : undefined}
-				mode={dialogMode}
+				currentWeekStart={weekStart}
+				existingEvents={events.map((e) => ({
+					id: e.id,
+					start: e.start,
+					end: e.end,
+				}))}
+			/>
+
+			{/* Clone Activity Dialog */}
+			<CloneActivityDialog
+				open={isCloneDialogOpen}
+				onOpenChange={(open) => {
+					setIsCloneDialogOpen(open)
+					if (!open) {
+						setActivityToClone(null)
+					}
+				}}
+				sourceActivity={activityToClone}
+				projects={projects.map((p: any) => ({
+					id: p.id,
+					name: p.name,
+					color: p.color,
+				}))}
+				tags={tags.map((t: any) => ({
+					id: t.id,
+					name: t.name,
+					color: t.color,
+				}))}
+				onSave={handleSaveClone}
 				currentWeekStart={weekStart}
 				existingEvents={events.map((e) => ({
 					id: e.id,
