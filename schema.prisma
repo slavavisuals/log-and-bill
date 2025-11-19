@@ -222,3 +222,187 @@ model Todo {
   title     String
   createdAt DateTime @default(now())
 }
+
+// ============================================
+// LOG AND BILL - Time Tracking Application
+// ============================================
+
+model log_and_bill_users {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clerkId   String   @unique @db.VarChar(255) // Clerk user ID
+  email     String   @unique @db.VarChar(255)
+  name      String   @db.VarChar(255)
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+  updatedAt DateTime @updatedAt @db.Timestamp(6)
+
+  settings   log_and_bill_user_settings?
+  projects   log_and_bill_projects[]
+  clients    log_and_bill_clients[]
+  activities log_and_bill_activities[]
+  tags       log_and_bill_tags[]
+  invoices   log_and_bill_invoices[]
+
+  @@index([clerkId], map: "idx_lab_users_clerk_id")
+  @@index([email], map: "idx_lab_users_email")
+}
+
+model log_and_bill_user_settings {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                String   @unique @db.Uuid
+  weeklyHourLimit       Decimal? @db.Decimal(5, 2) // e.g., 40.00 hours
+  monthlyHourLimit      Decimal? @db.Decimal(6, 2) // e.g., 160.00 hours
+  defaultHourlyRate     Decimal  @default(0) @db.Decimal(10, 2)
+  currency              String   @default("USD") @db.VarChar(3)
+  timeFormat            String   @default("24h") @db.VarChar(3) // "12h" or "24h"
+  newProjectsBillable   Boolean  @default(true)
+  companyName           String?  @db.VarChar(255)
+  companyAddress        String?  @db.Text
+  payToDetails          String?  @db.Text // Payment instructions for invoices
+  defaultTaxType        String?  @db.VarChar(20) // GST, HST, VAT, etc.
+  defaultTaxRate        Decimal? @db.Decimal(5, 2) // e.g., 13.00 for 13%
+  createdAt             DateTime @default(now()) @db.Timestamp(6)
+  updatedAt             DateTime @updatedAt @db.Timestamp(6)
+
+  user log_and_bill_users @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "idx_lab_user_settings_user_id")
+}
+
+model log_and_bill_clients {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @db.Uuid
+  name      String    @db.VarChar(255)
+  email     String?   @db.VarChar(255)
+  phone     String?   @db.VarChar(50)
+  address   String?   @db.Text
+  notes     String?   @db.Text
+  color     String?   @db.VarChar(7) // Hex color for UI
+  isDeleted Boolean   @default(false) // Soft delete
+  deletedAt DateTime? @db.Timestamp(6)
+  createdAt DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt DateTime  @updatedAt @db.Timestamp(6)
+
+  user     log_and_bill_users     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projects log_and_bill_projects[]
+  invoices log_and_bill_invoices[]
+
+  @@index([userId], map: "idx_lab_clients_user_id")
+  @@index([userId, isDeleted], map: "idx_lab_clients_user_active")
+}
+
+model log_and_bill_projects {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String    @db.Uuid
+  clientId   String?   @db.Uuid
+  name       String    @db.VarChar(255)
+  color      String?   @db.VarChar(7) // Hex color for UI
+  hourlyRate Decimal?  @db.Decimal(10, 2) // Override user's default rate
+  isBillable Boolean   @default(true)
+  isDeleted  Boolean   @default(false) // Soft delete
+  deletedAt  DateTime? @db.Timestamp(6)
+  createdAt  DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt  DateTime  @updatedAt @db.Timestamp(6)
+
+  user       log_and_bill_users       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client     log_and_bill_clients?    @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  activities log_and_bill_activities[]
+
+  @@index([userId], map: "idx_lab_projects_user_id")
+  @@index([userId, isDeleted], map: "idx_lab_projects_user_active")
+  @@index([clientId], map: "idx_lab_projects_client_id")
+}
+
+model log_and_bill_tags {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @db.Uuid
+  name      String   @db.VarChar(50) // Max 50 chars, truncate display at 8
+  color     String?  @db.VarChar(7) // Hex color for UI
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+  updatedAt DateTime @updatedAt @db.Timestamp(6)
+
+  user       log_and_bill_users          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activities log_and_bill_activity_tags[]
+
+  @@unique([userId, name], map: "idx_lab_tags_user_name_unique")
+  @@index([userId], map: "idx_lab_tags_user_id")
+}
+
+model log_and_bill_activities {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @db.Uuid
+  projectId   String?  @db.Uuid
+  name        String   @db.VarChar(255)
+  description String?  @db.Text
+  startTime   DateTime @db.Timestamp(6)
+  endTime     DateTime @db.Timestamp(6)
+  duration    Int      // Duration in minutes (calculated)
+  isBillable  Boolean  @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamp(6)
+  updatedAt   DateTime @updatedAt @db.Timestamp(6)
+
+  user    log_and_bill_users          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project log_and_bill_projects?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  tags    log_and_bill_activity_tags[]
+
+  @@index([userId], map: "idx_lab_activities_user_id")
+  @@index([userId, startTime], map: "idx_lab_activities_user_start")
+  @@index([projectId], map: "idx_lab_activities_project_id")
+  @@index([startTime, endTime], map: "idx_lab_activities_time_range")
+}
+
+model log_and_bill_activity_tags {
+  activityId String @db.Uuid
+  tagId      String @db.Uuid
+
+  activity log_and_bill_activities @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  tag      log_and_bill_tags       @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([activityId, tagId], map: "lab_activity_tags_pk")
+  @@index([activityId], map: "idx_lab_activity_tags_activity")
+  @@index([tagId], map: "idx_lab_activity_tags_tag")
+}
+
+model log_and_bill_invoices {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String    @db.Uuid
+  clientId      String?   @db.Uuid
+  invoiceNumber String    @db.VarChar(50)
+  invoiceDate   DateTime  @db.Date
+  dueDate       DateTime? @db.Date
+  billedTo      String?   @db.Text // Client billing address
+  payTo         String?   @db.Text // Payment details
+  taxType       String?   @db.VarChar(20)
+  taxRate       Decimal?  @db.Decimal(5, 2)
+  currency      String    @default("USD") @db.VarChar(3)
+  subtotal      Decimal   @db.Decimal(12, 2)
+  taxAmount     Decimal   @db.Decimal(12, 2)
+  total         Decimal   @db.Decimal(12, 2)
+  status        String    @default("draft") @db.VarChar(20) // draft, sent, paid
+  notes         String?   @db.Text
+  createdAt     DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt     DateTime  @updatedAt @db.Timestamp(6)
+
+  user   log_and_bill_users           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client log_and_bill_clients?        @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  items  log_and_bill_invoice_items[]
+
+  @@unique([userId, invoiceNumber], map: "idx_lab_invoices_user_number_unique")
+  @@index([userId], map: "idx_lab_invoices_user_id")
+  @@index([clientId], map: "idx_lab_invoices_client_id")
+  @@index([invoiceDate], map: "idx_lab_invoices_date")
+}
+
+model log_and_bill_invoice_items {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoiceId   String   @db.Uuid
+  date        DateTime @db.Date
+  description String   @db.VarChar(255)
+  hours       Decimal  @db.Decimal(6, 2)
+  rate        Decimal  @db.Decimal(10, 2)
+  amount      Decimal  @db.Decimal(12, 2)
+  createdAt   DateTime @default(now()) @db.Timestamp(6)
+
+  invoice log_and_bill_invoices @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId], map: "idx_lab_invoice_items_invoice_id")
+}
