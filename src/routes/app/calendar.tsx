@@ -14,17 +14,11 @@ import {
 	getWeek,
 } from "date-fns"
 import { enUS } from "date-fns/locale"
-import { ChevronLeft, ChevronRight, Copy, Trash2 } from "lucide-react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ActivityFormDialog } from "@/components/activity-form-dialog"
-import {
-	ContextMenu,
-	ContextMenuContent,
-	ContextMenuItem,
-	ContextMenuTrigger,
-} from "@/components/ui/context-menu"
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -260,14 +254,17 @@ function CalendarPage() {
 		}
 	}
 
-	// Handle duplicate
-	const handleDuplicate = async (event: CalendarEvent) => {
-		if (!user?.id) return
-		await duplicateActivityMutation({
-			id: event.id,
-			clerkId: user.id,
-		})
-	}
+	// Handle duplicate - memoized to prevent EventComponent recreation
+	const handleDuplicate = React.useCallback(
+		async (event: CalendarEvent) => {
+			if (!user?.id) return
+			await duplicateActivityMutation({
+				id: event.id,
+				clerkId: user.id,
+			})
+		},
+		[user?.id, duplicateActivityMutation]
+	)
 
 	// Handle delete confirmation
 	const handleConfirmDelete = async () => {
@@ -281,40 +278,24 @@ function CalendarPage() {
 		setSelectedActivity(undefined)
 	}
 
-	// Custom event component with context menu
-	const EventComponent = ({ event }: { event: CalendarEvent }) => (
-		<ContextMenu>
-			<ContextMenuTrigger asChild>
-				<div
-					className="h-full w-full overflow-hidden rounded px-1 py-0.5 text-xs"
-					style={{
-						backgroundColor: event.projectColor || "hsl(var(--primary))",
-						color: "white",
-					}}
-				>
-					<div className="font-medium">{event.title}</div>
-					{event.projectName && (
-						<div className="opacity-80">{event.projectName}</div>
-					)}
-				</div>
-			</ContextMenuTrigger>
-			<ContextMenuContent>
-				<ContextMenuItem onClick={() => handleDuplicate(event)}>
-					<Copy className="mr-2 size-4" />
-					Duplicate
-				</ContextMenuItem>
-				<ContextMenuItem
-					onClick={() => {
-						setEventToDelete(event)
-						setDeleteConfirmOpen(true)
-					}}
-					className="text-destructive"
-				>
-					<Trash2 className="mr-2 size-4" />
-					Delete
-				</ContextMenuItem>
-			</ContextMenuContent>
-		</ContextMenu>
+	// Custom event component - simplified for proper rendering
+	const EventComponent = React.useCallback(
+		({ event }: { event: CalendarEvent }) => (
+			<div
+				className="h-full w-full overflow-hidden px-1 py-0.5 text-xs text-white"
+				onContextMenu={(e) => {
+					e.preventDefault()
+					setEventToDelete(event)
+					setDeleteConfirmOpen(true)
+				}}
+			>
+				<div className="font-medium truncate">{event.title || "Untitled"}</div>
+				{event.projectName && (
+					<div className="truncate opacity-80">{event.projectName}</div>
+				)}
+			</div>
+		),
+		[]
 	)
 
 	return (
@@ -380,7 +361,7 @@ function CalendarPage() {
 							}}
 							eventPropGetter={(event) => ({
 								style: {
-									backgroundColor: event.projectColor || "hsl(var(--primary))",
+									backgroundColor: event.projectColor || "#3b82f6",
 									border: "none",
 									borderRadius: "4px",
 								},
