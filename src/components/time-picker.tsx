@@ -17,7 +17,7 @@ export function TimePicker({
 	value,
 	onChange,
 	label,
-	minHour = 1,
+	minHour = 0,
 	maxHour = 24,
 }: TimePickerProps) {
 	const hours = value.getHours()

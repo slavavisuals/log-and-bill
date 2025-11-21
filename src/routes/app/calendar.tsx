@@ -106,8 +106,8 @@ function CalendarPage() {
 	// Ref to skip onSelectEvent when handling context menu actions
 	const skipSelectEventRef = React.useRef(false)
 
-	// Time boundaries (1 AM to 11:59 PM)
-	const MIN_HOUR = 1
+	// Time boundaries (12:00 AM to 11:59 PM)
+	const MIN_HOUR = 0
 	const MAX_HOUR = 23
 
 	// Validate time range is within bounds
@@ -115,12 +115,6 @@ function CalendarPage() {
 		const startHour = start.getHours()
 		const endHour = end.getHours()
 		const endMinutes = end.getMinutes()
-
-		// Check start time (cannot start before 1 AM)
-		if (startHour < MIN_HOUR) {
-			toast.error(`Activities cannot start before ${MIN_HOUR}:00 AM`)
-			return false
-		}
 
 		// Check end time (allow up to 23:59 - 11:59 PM)
 		if (endHour >= MAX_HOUR && endMinutes > 0) {
