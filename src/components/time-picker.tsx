@@ -17,8 +17,8 @@ export function TimePicker({
 	value,
 	onChange,
 	label,
-	minHour = 5,
-	maxHour = 23,
+	minHour = 1,
+	maxHour = 24,
 }: TimePickerProps) {
 	const hours = value.getHours()
 	const minutes = value.getMinutes()
@@ -27,7 +27,7 @@ export function TimePicker({
 	const roundedMinutes = Math.round(minutes / 10) * 10
 
 	const updateTime = (newHours: number, newMinutes: number) => {
-		// Clamp hours to valid range
+		// Clamp hours to valid range (maxHour is exclusive upper bound)
 		const clampedHours = Math.max(minHour, Math.min(maxHour - 1, newHours))
 		const newDate = new Date(value)
 		newDate.setHours(clampedHours, newMinutes, 0, 0)

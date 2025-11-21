@@ -106,15 +106,9 @@ function CalendarPage() {
 	// Ref to skip onSelectEvent when handling context menu actions
 	const skipSelectEventRef = React.useRef(false)
 
-	// Time boundaries (5 AM to 11 PM)
-	const MIN_HOUR = 5
+	// Time boundaries (1 AM to 11:59 PM)
+	const MIN_HOUR = 1
 	const MAX_HOUR = 23
-
-	// Check if time is within valid boundaries
-	const isTimeInBounds = (date: Date): boolean => {
-		const hours = date.getHours()
-		return hours >= MIN_HOUR && hours < MAX_HOUR
-	}
 
 	// Validate time range is within bounds
 	const validateTimeBounds = (start: Date, end: Date): boolean => {
@@ -122,15 +116,15 @@ function CalendarPage() {
 		const endHour = end.getHours()
 		const endMinutes = end.getMinutes()
 
-		// Check start time
+		// Check start time (cannot start before 1 AM)
 		if (startHour < MIN_HOUR) {
 			toast.error(`Activities cannot start before ${MIN_HOUR}:00 AM`)
 			return false
 		}
 
-		// Check end time (allow up to 23:00)
-		if (endHour > MAX_HOUR || (endHour === MAX_HOUR && endMinutes > 0)) {
-			toast.error(`Activities cannot end after ${MAX_HOUR}:00`)
+		// Check end time (allow up to 23:59 - 11:59 PM)
+		if (endHour >= MAX_HOUR && endMinutes > 0) {
+			toast.error(`Activities must end by 11:59 PM`)
 			return false
 		}
 
@@ -587,7 +581,7 @@ function CalendarPage() {
 							resizable
 							step={15}
 							timeslots={4}
-							min={new Date(0, 0, 0, MIN_HOUR, 0, 0)}
+							min={new Date(0, 0, 0, 0, 0, 0)}
 							max={new Date(0, 0, 0, MAX_HOUR, 0, 0)}
 							scrollToTime={new Date(0, 0, 0, 8, 0, 0)}
 							components={{
