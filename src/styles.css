@@ -237,6 +237,16 @@ code {
   border-bottom: none;
 }
 
+/* Hide 12:00 AM label but keep the slot */
+.rbc-time-gutter .rbc-timeslot-group:first-child .rbc-label {
+  visibility: hidden;
+}
+
+/* Align time labels with time slot borders */
+.rbc-time-gutter .rbc-label {
+  transform: translateY(-50%);
+}
+
 /* Drag and drop styles */
 .rbc-addons-dnd .rbc-event {
   cursor: grab;
