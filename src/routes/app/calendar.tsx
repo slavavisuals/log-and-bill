@@ -153,36 +153,97 @@ function CalendarPage() {
 		})
 	)
 
-	// Mutations using correct oRPC pattern
+	// Mutations using optimistic updates for instant UI feedback
 	const { mutateAsync: createActivityMutation } = useMutation({
 		mutationFn: orpc.createActivity.call,
-		onSuccess: () => {
+		onMutate: async (variables) => {
+			// Create optimistic event
+			const tempId = `temp-${Date.now()}`
+			const optimisticEvent: CalendarEvent = {
+				id: tempId,
+				title: variables.name,
+				start: new Date(variables.startTime),
+				end: new Date(variables.endTime),
+				projectId: variables.projectId,
+				projectName: projects.find((p: any) => p.id === variables.projectId)?.name || null,
+				projectColor: projects.find((p: any) => p.id === variables.projectId)?.color || null,
+				tagIds: variables.tagIds,
+				isBillable: variables.isBillable,
+			}
+			// Immediately add to UI
+			setEvents((prev) => [...prev, optimisticEvent])
+			return { tempId }
+		},
+		onSuccess: (data, variables, context) => {
+			// Replace temp event with real one from server
 			refetchActivities()
 			toast.success("Activity created")
 		},
-		onError: (error: any) => {
+		onError: (error: any, variables, context) => {
+			// Remove optimistic event on failure
+			if (context?.tempId) {
+				setEvents((prev) => prev.filter((e) => e.id !== context.tempId))
+			}
 			toast.error(error.message || "Failed to create activity")
 		},
 	})
 
 	const { mutateAsync: updateActivityMutation } = useMutation({
 		mutationFn: orpc.updateActivity.call,
+		onMutate: async (variables) => {
+			// Store previous events for rollback
+			const previousEvents = events
+			// Optimistically update UI
+			setEvents((prev) =>
+				prev.map((event) =>
+					event.id === variables.id
+						? {
+								...event,
+								title: variables.name,
+								start: new Date(variables.startTime),
+								end: new Date(variables.endTime),
+								projectId: variables.projectId,
+								projectName: projects.find((p: any) => p.id === variables.projectId)?.name || null,
+								projectColor: projects.find((p: any) => p.id === variables.projectId)?.color || null,
+								tagIds: variables.tagIds,
+								isBillable: variables.isBillable,
+						  }
+						: event
+				)
+			)
+			return { previousEvents }
+		},
 		onSuccess: () => {
 			refetchActivities()
 			toast.success("Activity updated")
 		},
-		onError: (error: any) => {
+		onError: (error: any, variables, context) => {
+			// Rollback on error
+			if (context?.previousEvents) {
+				setEvents(context.previousEvents)
+			}
 			toast.error(error.message || "Failed to update activity")
 		},
 	})
 
 	const { mutateAsync: deleteActivityMutation } = useMutation({
 		mutationFn: orpc.deleteActivity.call,
+		onMutate: async (variables) => {
+			// Store previous events for rollback
+			const previousEvents = events
+			// Optimistically remove from UI
+			setEvents((prev) => prev.filter((e) => e.id !== variables.id))
+			return { previousEvents }
+		},
 		onSuccess: () => {
 			refetchActivities()
 			toast.success("Activity deleted")
 		},
-		onError: (error: any) => {
+		onError: (error: any, variables, context) => {
+			// Rollback on error
+			if (context?.previousEvents) {
+				setEvents(context.previousEvents)
+			}
 			toast.error(error.message || "Failed to delete activity")
 		},
 	})
@@ -269,9 +330,13 @@ function CalendarPage() {
 		setIsDialogOpen(true)
 	}
 
-	// Handle save
+	// Handle save - close dialog immediately for instant feedback
 	const handleSave = async (data: ActivityFormData) => {
 		if (!user?.id) return
+
+		// Close dialog immediately
+		setIsDialogOpen(false)
+		setSelectedActivity(undefined)
 
 		if (data.id) {
 			// Update existing
@@ -297,9 +362,6 @@ function CalendarPage() {
 				tagIds: data.tagIds,
 			})
 		}
-
-		setIsDialogOpen(false)
-		setSelectedActivity(undefined)
 	}
 
 	// Handle delete from dialog
@@ -327,7 +389,7 @@ function CalendarPage() {
 		[]
 	)
 
-	// Handle save cloned activity
+	// Handle save cloned activity - close dialog immediately for instant feedback
 	const handleSaveClone = async (data: {
 		name: string
 		projectId: string | null
@@ -338,6 +400,10 @@ function CalendarPage() {
 	}) => {
 		if (!user?.id) return
 
+		// Close dialog immediately
+		setIsCloneDialogOpen(false)
+		setActivityToClone(null)
+
 		await createActivityMutation({
 			clerkId: user.id,
 			name: data.name,
@@ -347,9 +413,6 @@ function CalendarPage() {
 			isBillable: data.isBillable,
 			tagIds: data.tagIds,
 		})
-
-		setIsCloneDialogOpen(false)
-		setActivityToClone(null)
 	}
 
 	// Handle event drop (drag and drop)
@@ -449,16 +512,21 @@ function CalendarPage() {
 		[]
 	)
 
-	// Handle delete confirmation
+	// Handle delete confirmation - close dialog immediately for instant feedback
 	const handleConfirmDelete = async () => {
 		if (!user?.id || !eventToDelete) return
-		await deleteActivityMutation({
-			id: eventToDelete.id,
-			clerkId: user.id,
-		})
+
+		const eventId = eventToDelete.id
+
+		// Close dialog immediately
 		setDeleteConfirmOpen(false)
 		setEventToDelete(null)
 		setSelectedActivity(undefined)
+
+		await deleteActivityMutation({
+			id: eventId,
+			clerkId: user.id,
+		})
 	}
 
 	// Custom event component with context menu and move icon
