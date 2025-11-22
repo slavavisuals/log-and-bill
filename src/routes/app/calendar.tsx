@@ -1,32 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router"
 import * as React from "react"
 import { useUser } from "@clerk/clerk-react"
-import { Calendar as BigCalendar, dateFnsLocalizer } from "react-big-calendar"
+import { Calendar as BigCalendar } from "react-big-calendar"
 import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop"
-import { useQuery, useMutation } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import {
-	format,
-	parse,
 	startOfWeek,
 	endOfWeek,
-	getDay,
 	addWeeks,
 	subWeeks,
 	getWeek,
+	format,
 } from "date-fns"
-import { enUS } from "date-fns/locale"
-import { ChevronLeft, ChevronRight, Move, Copy, Pencil, Trash2 } from "lucide-react"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { ActivityFormDialog } from "@/components/activity-form-dialog"
 import { CloneActivityDialog } from "@/components/clone-activity-dialog"
-import {
-	ContextMenu,
-	ContextMenuContent,
-	ContextMenuItem,
-	ContextMenuTrigger,
-} from "@/components/ui/context-menu"
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -37,8 +26,14 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { CalendarEventComponent } from "@/components/calendar-event"
+import { CalendarHeader } from "@/components/calendar-header"
+import { CalendarStats } from "@/components/calendar-stats"
 import { orpc } from "@/orpc/client"
-import { toast } from "sonner"
+import { localizer, MAX_HOUR } from "@/lib/calendar-constants"
+import type { CalendarEvent, ActivityFormData } from "@/lib/calendar-types"
+import { useCalendarMutations } from "@/hooks/use-calendar-mutations"
+import { useCalendarHandlers } from "@/hooks/use-calendar-handlers"
 
 import "react-big-calendar/lib/css/react-big-calendar.css"
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css"
@@ -47,43 +42,8 @@ export const Route = createFileRoute("/app/calendar")({
 	component: CalendarPage,
 })
 
-// Setup date-fns localizer for react-big-calendar
-const locales = {
-	"en-US": enUS,
-}
-
-const localizer = dateFnsLocalizer({
-	format,
-	parse,
-	startOfWeek,
-	getDay,
-	locales,
-})
-
-// Create drag and drop calendar
-const DragAndDropCalendar = withDragAndDrop(BigCalendar)
-
-interface CalendarEvent {
-	id: string
-	title: string
-	start: Date
-	end: Date
-	projectId: string | null
-	projectName: string | null
-	projectColor: string | null
-	tagIds: string[]
-	isBillable: boolean
-}
-
-interface ActivityFormData {
-	id?: string
-	name: string
-	projectId: string | null
-	tagIds: string[]
-	isBillable: boolean
-	startTime: Date
-	endTime: Date
-}
+// Create drag and drop calendar with proper typing
+const DragAndDropCalendar = withDragAndDrop<CalendarEvent>(BigCalendar)
 
 function CalendarPage() {
 	const { user } = useUser()
@@ -105,25 +65,6 @@ function CalendarPage() {
 
 	// Ref to skip onSelectEvent when handling context menu actions
 	const skipSelectEventRef = React.useRef(false)
-
-	// Time boundaries (12:00 AM to 11:59 PM)
-	const MIN_HOUR = 0
-	const MAX_HOUR = 23
-
-	// Validate time range is within bounds
-	const validateTimeBounds = (start: Date, end: Date): boolean => {
-		const startHour = start.getHours()
-		const endHour = end.getHours()
-		const endMinutes = end.getMinutes()
-
-		// Check end time (allow up to 23:59 - 11:59 PM)
-		if (endHour >= MAX_HOUR && endMinutes > 0) {
-			toast.error(`Activities must end by 11:59 PM`)
-			return false
-		}
-
-		return true
-	}
 
 	// Calculate week range
 	const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 })
@@ -154,98 +95,43 @@ function CalendarPage() {
 	)
 
 	// Mutations using optimistic updates for instant UI feedback
-	const { mutateAsync: createActivityMutation } = useMutation({
-		mutationFn: orpc.createActivity.call,
-		onMutate: async (variables) => {
-			// Create optimistic event
-			const tempId = `temp-${Date.now()}`
-			const optimisticEvent: CalendarEvent = {
-				id: tempId,
-				title: variables.name,
-				start: new Date(variables.startTime),
-				end: new Date(variables.endTime),
-				projectId: variables.projectId,
-				projectName: projects.find((p: any) => p.id === variables.projectId)?.name || null,
-				projectColor: projects.find((p: any) => p.id === variables.projectId)?.color || null,
-				tagIds: variables.tagIds,
-				isBillable: variables.isBillable,
-			}
-			// Immediately add to UI
-			setEvents((prev) => [...prev, optimisticEvent])
-			return { tempId }
-		},
-		onSuccess: (data, variables, context) => {
-			// Replace temp event with real one from server
-			refetchActivities()
-			toast.success("Activity created")
-		},
-		onError: (error: any, variables, context) => {
-			// Remove optimistic event on failure
-			if (context?.tempId) {
-				setEvents((prev) => prev.filter((e) => e.id !== context.tempId))
-			}
-			toast.error(error.message || "Failed to create activity")
-		},
+	const {
+		createActivityMutation,
+		updateActivityMutation,
+		deleteActivityMutation,
+	} = useCalendarMutations({
+		events,
+		setEvents,
+		refetchActivities,
+		projects,
 	})
 
-	const { mutateAsync: updateActivityMutation } = useMutation({
-		mutationFn: orpc.updateActivity.call,
-		onMutate: async (variables) => {
-			// Store previous events for rollback
-			const previousEvents = events
-			// Optimistically update UI
-			setEvents((prev) =>
-				prev.map((event) =>
-					event.id === variables.id
-						? {
-								...event,
-								title: variables.name,
-								start: new Date(variables.startTime),
-								end: new Date(variables.endTime),
-								projectId: variables.projectId,
-								projectName: projects.find((p: any) => p.id === variables.projectId)?.name || null,
-								projectColor: projects.find((p: any) => p.id === variables.projectId)?.color || null,
-								tagIds: variables.tagIds,
-								isBillable: variables.isBillable,
-						  }
-						: event
-				)
-			)
-			return { previousEvents }
-		},
-		onSuccess: () => {
-			refetchActivities()
-			toast.success("Activity updated")
-		},
-		onError: (error: any, variables, context) => {
-			// Rollback on error
-			if (context?.previousEvents) {
-				setEvents(context.previousEvents)
-			}
-			toast.error(error.message || "Failed to update activity")
-		},
-	})
-
-	const { mutateAsync: deleteActivityMutation } = useMutation({
-		mutationFn: orpc.deleteActivity.call,
-		onMutate: async (variables) => {
-			// Store previous events for rollback
-			const previousEvents = events
-			// Optimistically remove from UI
-			setEvents((prev) => prev.filter((e) => e.id !== variables.id))
-			return { previousEvents }
-		},
-		onSuccess: () => {
-			refetchActivities()
-			toast.success("Activity deleted")
-		},
-		onError: (error: any, variables, context) => {
-			// Rollback on error
-			if (context?.previousEvents) {
-				setEvents(context.previousEvents)
-			}
-			toast.error(error.message || "Failed to delete activity")
-		},
+	// Event handlers
+	const {
+		handleSelectSlot,
+		handleSelectEvent,
+		handleSave,
+		handleDeleteFromDialog,
+		handleDuplicate,
+		handleSaveClone,
+		handleEventDrop,
+		handleEventResize,
+		handleEdit,
+		handleConfirmDelete,
+	} = useCalendarHandlers({
+		events,
+		userId: user?.id,
+		skipSelectEventRef,
+		setSelectedActivity,
+		setIsDialogOpen,
+		setEventToDelete,
+		setDeleteConfirmOpen,
+		setActivityToClone,
+		setIsCloneDialogOpen,
+		updateActivityMutation,
+		deleteActivityMutation,
+		createActivityMutation,
+		refetchActivities,
 	})
 
 	// Transform activities to calendar events
@@ -278,310 +164,30 @@ function CalendarPage() {
 	const goToNextWeek = () => setCurrentDate(addWeeks(currentDate, 1))
 	const goToToday = () => setCurrentDate(new Date())
 
-	// Check for overlapping events
-	const checkOverlap = React.useCallback(
-		(newStart: Date, newEnd: Date, excludeId?: string): boolean => {
-			return events.some((event) => {
-				if (excludeId && event.id === excludeId) return false
-				return newStart < event.end && newEnd > event.start
-			})
-		},
-		[events]
-	)
-
-	// Handle slot selection (creating new activity)
-	const handleSelectSlot = ({ start, end }: { start: Date; end: Date }) => {
-		// Check time boundaries
-		if (!validateTimeBounds(start, end)) {
-			return
-		}
-		// Check for overlap
-		if (checkOverlap(start, end)) {
-			toast.error("There is no time available for new activity. Activities cannot overlap.")
-			return
-		}
-		setSelectedActivity({
-			name: "",
-			projectId: null,
-			tagIds: [],
-			isBillable: true,
-			startTime: start,
-			endTime: end,
-		})
-		setIsDialogOpen(true)
-	}
-
-	// Handle event selection (editing activity)
-	const handleSelectEvent = (event: CalendarEvent) => {
-		// Skip if we're handling a context menu action
-		if (skipSelectEventRef.current) {
-			skipSelectEventRef.current = false
-			return
-		}
-		setSelectedActivity({
-			id: event.id,
-			name: event.title,
-			projectId: event.projectId,
-			tagIds: event.tagIds,
-			isBillable: event.isBillable,
-			startTime: event.start,
-			endTime: event.end,
-		})
-		setIsDialogOpen(true)
-	}
-
-	// Handle save - close dialog immediately for instant feedback
-	const handleSave = async (data: ActivityFormData) => {
-		if (!user?.id) return
-
-		// Close dialog immediately
-		setIsDialogOpen(false)
-		setSelectedActivity(undefined)
-
-		if (data.id) {
-			// Update existing
-			await updateActivityMutation({
-				id: data.id,
-				clerkId: user.id,
-				name: data.name,
-				projectId: data.projectId,
-				startTime: data.startTime.toISOString(),
-				endTime: data.endTime.toISOString(),
-				isBillable: data.isBillable,
-				tagIds: data.tagIds,
-			})
-		} else {
-			// Create new
-			await createActivityMutation({
-				clerkId: user.id,
-				name: data.name,
-				projectId: data.projectId,
-				startTime: data.startTime.toISOString(),
-				endTime: data.endTime.toISOString(),
-				isBillable: data.isBillable,
-				tagIds: data.tagIds,
-			})
-		}
-	}
-
-	// Handle delete from dialog
-	const handleDeleteFromDialog = () => {
-		if (selectedActivity?.id) {
-			setEventToDelete(events.find((e) => e.id === selectedActivity.id) || null)
-			setIsDialogOpen(false)
-			setDeleteConfirmOpen(true)
-		}
-	}
-
-	// Handle clone - opens separate clone dialog
-	const handleDuplicate = React.useCallback(
-		(event: CalendarEvent) => {
-			setActivityToClone({
-				name: event.title,
-				projectId: event.projectId,
-				tagIds: event.tagIds,
-				isBillable: event.isBillable,
-				startTime: event.start,
-				endTime: event.end,
-			})
-			setIsCloneDialogOpen(true)
-		},
-		[]
-	)
-
-	// Handle save cloned activity - close dialog immediately for instant feedback
-	const handleSaveClone = async (data: {
-		name: string
-		projectId: string | null
-		tagIds: string[]
-		isBillable: boolean
-		startTime: Date
-		endTime: Date
-	}) => {
-		if (!user?.id) return
-
-		// Close dialog immediately
-		setIsCloneDialogOpen(false)
-		setActivityToClone(null)
-
-		await createActivityMutation({
-			clerkId: user.id,
-			name: data.name,
-			projectId: data.projectId,
-			startTime: data.startTime.toISOString(),
-			endTime: data.endTime.toISOString(),
-			isBillable: data.isBillable,
-			tagIds: data.tagIds,
-		})
-	}
-
-	// Handle event drop (drag and drop)
-	const handleEventDrop = React.useCallback(
-		async ({
-			event,
-			start,
-			end,
-		}: {
-			event: CalendarEvent
-			start: Date
-			end: Date
-		}) => {
-			if (!user?.id) return
-
-			// Check time boundaries
-			if (!validateTimeBounds(start, end)) {
-				refetchActivities() // Reset to original position
-				return
-			}
-
-			// Check for overlap
-			if (checkOverlap(start, end, event.id)) {
-				toast.error("Activities cannot overlap.")
-				refetchActivities() // Reset to original position
-				return
-			}
-
-			await updateActivityMutation({
-				id: event.id,
-				clerkId: user.id,
-				name: event.title,
-				projectId: event.projectId,
-				startTime: start.toISOString(),
-				endTime: end.toISOString(),
-				isBillable: event.isBillable,
-				tagIds: event.tagIds,
-			})
-		},
-		[user?.id, updateActivityMutation, checkOverlap, refetchActivities, validateTimeBounds]
-	)
-
-	// Handle event resize
-	const handleEventResize = React.useCallback(
-		async ({
-			event,
-			start,
-			end,
-		}: {
-			event: CalendarEvent
-			start: Date
-			end: Date
-		}) => {
-			if (!user?.id) return
-
-			// Check time boundaries
-			if (!validateTimeBounds(start, end)) {
-				refetchActivities() // Reset to original size
-				return
-			}
-
-			// Check for overlap
-			if (checkOverlap(start, end, event.id)) {
-				toast.error("Activities cannot overlap.")
-				refetchActivities() // Reset to original size
-				return
-			}
-
-			await updateActivityMutation({
-				id: event.id,
-				clerkId: user.id,
-				name: event.title,
-				projectId: event.projectId,
-				startTime: start.toISOString(),
-				endTime: end.toISOString(),
-				isBillable: event.isBillable,
-				tagIds: event.tagIds,
-			})
-		},
-		[user?.id, updateActivityMutation, checkOverlap, refetchActivities, validateTimeBounds]
-	)
-
-	// Handle edit from context menu
-	const handleEdit = React.useCallback(
-		(event: CalendarEvent) => {
-			setSelectedActivity({
-				id: event.id,
-				name: event.title,
-				projectId: event.projectId,
-				tagIds: event.tagIds,
-				isBillable: event.isBillable,
-				startTime: event.start,
-				endTime: event.end,
-			})
-			setIsDialogOpen(true)
-		},
-		[]
-	)
-
-	// Handle delete confirmation - close dialog immediately for instant feedback
-	const handleConfirmDelete = async () => {
-		if (!user?.id || !eventToDelete) return
-
-		const eventId = eventToDelete.id
-
-		// Close dialog immediately
-		setDeleteConfirmOpen(false)
-		setEventToDelete(null)
-		setSelectedActivity(undefined)
-
-		await deleteActivityMutation({
-			id: eventId,
-			clerkId: user.id,
-		})
-	}
-
-	// Custom event component with context menu and move icon
+	// Custom event component wrapper
 	const EventComponent = React.useCallback(
 		({ event }: { event: CalendarEvent }) => (
-			<ContextMenu>
-				<ContextMenuTrigger asChild>
-					<div
-						className="group relative h-full w-full overflow-hidden px-1 py-0.5 text-xs text-white"
-						onContextMenu={() => {
-							// Set flag to skip onSelectEvent when context menu opens
-							skipSelectEventRef.current = true
-						}}
-					>
-						<Move className="absolute right-0.5 top-0.5 size-3 opacity-50 group-hover:opacity-100" />
-						<div className="font-medium truncate pr-4">{event.title || "Untitled"}</div>
-						{event.projectName && (
-							<div className="truncate opacity-80">{event.projectName}</div>
-						)}
-					</div>
-				</ContextMenuTrigger>
-				<ContextMenuContent>
-					<ContextMenuItem
-						onSelect={() => {
-							skipSelectEventRef.current = true
-							handleDuplicate(event)
-						}}
-					>
-						<Copy className="mr-2 size-4" />
-						Clone
-					</ContextMenuItem>
-					<ContextMenuItem
-						onSelect={() => {
-							skipSelectEventRef.current = true
-							handleEdit(event)
-						}}
-					>
-						<Pencil className="mr-2 size-4" />
-						Edit
-					</ContextMenuItem>
-					<ContextMenuItem
-						onSelect={() => {
-							skipSelectEventRef.current = true
-							setEventToDelete(event)
-							setDeleteConfirmOpen(true)
-						}}
-						className="text-destructive"
-					>
-						<Trash2 className="mr-2 size-4" />
-						Delete
-					</ContextMenuItem>
-				</ContextMenuContent>
-			</ContextMenu>
+			<CalendarEventComponent
+				event={event}
+				onEdit={(e) => {
+					skipSelectEventRef.current = true
+					handleEdit(e)
+				}}
+				onClone={(e) => {
+					skipSelectEventRef.current = true
+					handleDuplicate(e)
+				}}
+				onDelete={(e) => {
+					skipSelectEventRef.current = true
+					setEventToDelete(e)
+					setDeleteConfirmOpen(true)
+				}}
+				onContextMenu={() => {
+					skipSelectEventRef.current = true
+				}}
+			/>
 		),
-		[handleDuplicate, handleEdit]
+		[handleEdit, handleDuplicate]
 	)
 
 	return (
@@ -593,36 +199,19 @@ function CalendarPage() {
 						Track your time with the calendar scheduler
 					</p>
 				</div>
-				<div className="text-right">
-					<div className="text-2xl font-bold">
-						{totalHours}h {totalMins}m
-					</div>
-					<div className="text-muted-foreground text-sm">Total this week</div>
-				</div>
+				<CalendarStats totalHours={totalHours} totalMinutes={totalMins} />
 			</div>
 
 			<Card>
 				<CardHeader className="pb-4">
-					<div className="flex items-center justify-between">
-						<div className="flex items-center gap-2">
-							<Button variant="outline" size="icon" onClick={goToPreviousWeek}>
-								<ChevronLeft className="size-4" />
-							</Button>
-							<Button variant="outline" size="icon" onClick={goToNextWeek}>
-								<ChevronRight className="size-4" />
-							</Button>
-							<Button variant="outline" onClick={goToToday}>
-								Today
-							</Button>
-						</div>
-						<CardTitle className="text-lg">
-							{format(weekStart, "MMM d")} - {format(weekEnd, "MMM d, yyyy")}
-							<span className="text-muted-foreground ml-2 font-normal">
-								Week {weekNumber}
-							</span>
-						</CardTitle>
-						<div />
-					</div>
+					<CalendarHeader
+						weekStart={weekStart}
+						weekEnd={weekEnd}
+						weekNumber={weekNumber}
+						onPreviousWeek={goToPreviousWeek}
+						onNextWeek={goToNextWeek}
+						onToday={goToToday}
+					/>
 				</CardHeader>
 				<CardContent>
 					<div className="h-[700px]">
@@ -693,7 +282,7 @@ function CalendarPage() {
 					color: t.color,
 				}))}
 				onSave={handleSave}
-				onDelete={selectedActivity?.id ? handleDeleteFromDialog : undefined}
+				onDelete={selectedActivity?.id ? () => handleDeleteFromDialog(selectedActivity.id) : undefined}
 				currentWeekStart={weekStart}
 				existingEvents={events.map((e) => ({
 					id: e.id,
@@ -743,7 +332,7 @@ function CalendarPage() {
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction onClick={handleConfirmDelete}>
+						<AlertDialogAction onClick={() => handleConfirmDelete(eventToDelete)}>
 							Delete
 						</AlertDialogAction>
 					</AlertDialogFooter>

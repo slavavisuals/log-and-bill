@@ -1,5 +1,5 @@
 import { useUser } from "@clerk/clerk-react"
-import { useMutation, useQuery } from "@tanstack/react-query"
+import { useMutation } from "@tanstack/react-query"
 import { useEffect } from "react"
 import { orpc } from "@/orpc/client"
 
@@ -7,7 +7,8 @@ export function useEnsureUser() {
 	const { user, isLoaded, isSignedIn } = useUser()
 
 	const { mutate: createUser, isPending } = useMutation({
-		mutationFn: orpc.getOrCreateUser.call,
+		mutationFn: (variables: { clerkId: string; email: string; name: string }) =>
+			orpc.getOrCreateUser.call(variables),
 	})
 
 	useEffect(() => {
